@@ -120,6 +120,47 @@ class TestValidatorDuplicates:
         assert len(dup_warnings) == 0
 
 
+class TestValidatorCaseRemark:
+    """Test case_remark format checking (soft warning, row still included)."""
+
+    def test_well_formed_case_remark_no_warning(self, minimal_df, default_config):
+        """A well-formed case_remark produces no warning."""
+        minimal_df["case_remark"] = [
+            "C#37166 22505AA RESP AIRTIME-KSH29400 d05",
+            "C#37167 22505AA RESP AIRTIME-KSH1000 d05",
+        ]
+        report = validate(minimal_df, default_config)
+        case_remark_warnings = [w for w in report.warnings if w.field == "case_remark"]
+        assert len(case_remark_warnings) == 0
+
+    def test_malformed_case_remark_warns(self, minimal_df, default_config):
+        """A malformed case_remark produces a warning but does not exclude the row."""
+        minimal_df["case_remark"] = ["not a valid case remark", ""]
+        report = validate(minimal_df, default_config)
+        case_remark_warnings = [w for w in report.warnings if w.field == "case_remark"]
+        assert len(case_remark_warnings) == 1
+        assert case_remark_warnings[0].row_number == 2  # 1-based + header row
+        # Row is still valid (soft warning, not a hard error)
+        assert report.valid_rows == 2
+
+    def test_missing_case_remark_no_warning(self, minimal_df, default_config):
+        """No case_remark column at all produces no warning (legacy behavior)."""
+        report = validate(minimal_df, default_config)
+        case_remark_warnings = [w for w in report.warnings if w.field == "case_remark"]
+        assert len(case_remark_warnings) == 0
+
+    def test_nan_case_remark_no_warning(self, minimal_df, default_config):
+        """An empty CSV/Excel cell (read as NaN by pandas) produces no warning.
+
+        Regression test: str(float('nan')) == 'nan', which must not be treated
+        as a malformed case_remark value.
+        """
+        minimal_df["case_remark"] = [float("nan"), float("nan")]
+        report = validate(minimal_df, default_config)
+        case_remark_warnings = [w for w in report.warnings if w.field == "case_remark"]
+        assert len(case_remark_warnings) == 0
+
+
 class TestValidatorEmptyDataFrame:
     """Test edge cases with empty DataFrames."""
 

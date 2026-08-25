@@ -13,7 +13,7 @@ import pandas as pd
 from .config import Settings, settings
 from .mapper import map_network
 from .models import IssueSeverity, OutputRow, TransformResult, ValidationIssue
-from .normalizer import normalize_amount, normalize_phone
+from .normalizer import format_case_remark, normalize_amount, normalize_phone, parse_case_remark
 from .validator import validate
 from .writer import load_allowed_types, write_openfloat_excel
 
@@ -129,10 +129,22 @@ def _build_output_rows(
             error_indices.add(idx)
             continue
 
-        # --- Build Remark ---
-        project_name = str(row.get("project_name", "")).strip()
-        project_activity = str(row.get("Project_Activity", "")).strip()
-        remark = f"{project_name} - {project_activity}" if project_name or project_activity else ""
+        # --- Build Remark from case_remark (soft-falls back on parse failure) ---
+        # Note: an empty CSV/Excel cell reads as NaN, not "", so check pd.isna
+        # first — str(NaN) would otherwise become the literal string "nan".
+        case_remark_cell = row.get("case_remark", "")
+        case_remark_raw = "" if pd.isna(case_remark_cell) else str(case_remark_cell).strip()
+        case_remark_parts, _ = parse_case_remark(case_remark_raw) if case_remark_raw else (None, None)
+        if case_remark_parts is not None:
+            remark = format_case_remark(case_remark_parts)
+        elif case_remark_raw:
+            # Doesn't match the expected pattern — keep the raw text rather than
+            # silently dropping it (validator already raised a warning for this).
+            remark = case_remark_raw
+        else:
+            project_name = str(row.get("project_name", "")).strip()
+            project_activity = str(row.get("Project_Activity", "")).strip()
+            remark = f"{project_name} - {project_activity}" if project_name or project_activity else ""
 
         # --- Create OutputRow ---
         output_rows.append(

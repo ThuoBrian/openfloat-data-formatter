@@ -10,6 +10,7 @@ Handles the normalization pipeline defined in the golden prompt §4.2:
 from __future__ import annotations
 
 import re
+from typing import NamedTuple
 
 
 def normalize_phone(
@@ -95,3 +96,77 @@ def normalize_amount(raw: str | int | float) -> tuple[float, str | None]:
         return (0.0, f"Amount {raw} is not positive")
 
     return (value, None)
+
+
+# ---------------------------------------------------------------------------
+# case_remark parsing
+# ---------------------------------------------------------------------------
+
+# Manually-typed case reference, fixed order, space-separated:
+#   C#<case_number> <project_code> RESP AIRTIME-KSH<amount> <activity_code>
+# Example: "C#37166 22505AA RESP AIRTIME-KSH29400 d05"
+_CASE_REMARK_PATTERN = re.compile(
+    r"^C#(?P<case_number>\d+)\s+(?P<project_code>\S+)\s+RESP\s+"
+    r"AIRTIME-KSH(?P<amount>\d+)\s+(?P<activity_code>\S+)$"
+)
+
+
+class CaseRemarkParts(NamedTuple):
+    """Structured pieces parsed out of a manually-typed `case_remark` string."""
+
+    case_number: str
+    project_code: str
+    amount: str
+    activity_code: str
+
+
+def parse_case_remark(raw: str) -> tuple[CaseRemarkParts | None, str | None]:
+    """Parse a manually-typed `case_remark` string into its component pieces.
+
+    Expected format (fixed order, space-separated):
+        C#<case_number> <project_code> RESP AIRTIME-KSH<amount> <activity_code>
+
+    Args:
+        raw: The raw case_remark value entered by the user.
+
+    Returns:
+        A tuple of (parts, error_message).
+        On success: (CaseRemarkParts(...), None)
+        On failure: (None, error_description)
+
+    Examples:
+        >>> parse_case_remark("C#37166 22505AA RESP AIRTIME-KSH29400 d05")
+        (CaseRemarkParts(case_number='37166', project_code='22505AA', amount='29400', activity_code='d05'), None)
+        >>> parse_case_remark("garbage")[0] is None
+        True
+    """
+    match = _CASE_REMARK_PATTERN.match(raw.strip())
+    if match is None:
+        return (
+            None,
+            f"case_remark '{raw}' does not match expected format "
+            f"'C#<case_number> <project_code> RESP AIRTIME-KSH<amount> <activity_code>'",
+        )
+
+    return (
+        CaseRemarkParts(
+            case_number=match.group("case_number"),
+            project_code=match.group("project_code"),
+            amount=match.group("amount"),
+            activity_code=match.group("activity_code"),
+        ),
+        None,
+    )
+
+
+def format_case_remark(parts: CaseRemarkParts) -> str:
+    """Format parsed `case_remark` pieces into the OpenFloat Remark string.
+
+    Examples:
+        >>> format_case_remark(CaseRemarkParts("37166", "22505AA", "29400", "d05"))
+        'Case #37166 | 22505AA | RESP | AIRTIME KSH 29400 | d05'
+    """
+    return (
+        f"Case #{parts.case_number} | {parts.project_code} | RESP | "
+        f"AIRTIME KSH {parts.amount} | {parts.activity_code}"
+    )

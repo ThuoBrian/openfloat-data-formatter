@@ -80,7 +80,30 @@ class TestBuildOutputRows:
         assert 0 in errors
 
     def test_remark_format(self, minimal_df, default_config):
-        """Remark is formatted as 'project_name - Project_Activity'."""
+        """Remark falls back to 'project_name - Project_Activity' when case_remark is absent."""
+        rows, _ = _build_output_rows(minimal_df, default_config)
+        assert rows[0].remark == "Test Project - g05|Testing"
+
+    def test_remark_from_case_remark(self, minimal_df, default_config):
+        """Remark is built from a well-formed case_remark, taking priority over project/activity."""
+        minimal_df["case_remark"] = [
+            "C#37166 22505AA RESP AIRTIME-KSH29400 d05",
+            "",
+        ]
+        rows, _ = _build_output_rows(minimal_df, default_config)
+        assert rows[0].remark == "Case #37166 | 22505AA | RESP | AIRTIME KSH 29400 | d05"
+        # Row 1 has no case_remark, so it falls back to project/activity.
+        assert rows[1].remark == "Test Project - g05|Testing"
+
+    def test_remark_from_malformed_case_remark_falls_back_to_raw(self, minimal_df, default_config):
+        """A case_remark that doesn't match the expected pattern is kept verbatim (soft fallback)."""
+        minimal_df["case_remark"] = ["not a valid case remark", ""]
+        rows, _ = _build_output_rows(minimal_df, default_config)
+        assert rows[0].remark == "not a valid case remark"
+
+    def test_remark_nan_case_remark_falls_back_to_project_activity(self, minimal_df, default_config):
+        """An empty CSV/Excel cell (read as NaN) falls back to project/activity, not the string 'nan'."""
+        minimal_df["case_remark"] = [float("nan"), float("nan")]
         rows, _ = _build_output_rows(minimal_df, default_config)
         assert rows[0].remark == "Test Project - g05|Testing"
 

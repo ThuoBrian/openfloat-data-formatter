@@ -47,6 +47,7 @@ class InputRow(BaseModel):
     Project_Activity: str
     department: str
     survey: str
+    case_remark: str = ""
 
 
 class OutputRow(BaseModel):

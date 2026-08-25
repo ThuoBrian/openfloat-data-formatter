@@ -2,7 +2,13 @@
 
 import pytest
 
-from backend.normalizer import normalize_amount, normalize_phone
+from backend.normalizer import (
+    CaseRemarkParts,
+    format_case_remark,
+    normalize_amount,
+    normalize_phone,
+    parse_case_remark,
+)
 
 
 class TestNormalizePhone:
@@ -130,3 +136,61 @@ class TestNormalizeAmount:
         result, error = normalize_amount("")
         assert result == 0.0
         assert error is not None
+
+
+class TestParseCaseRemark:
+    """Test case_remark parsing: 'C#<case> <project> RESP AIRTIME-KSH<amount> <activity>'."""
+
+    def test_well_formed(self):
+        """Standard well-formed case_remark string."""
+        parts, error = parse_case_remark("C#37166 22505AA RESP AIRTIME-KSH29400 d05")
+        assert error is None
+        assert parts == CaseRemarkParts(
+            case_number="37166", project_code="22505AA", amount="29400", activity_code="d05"
+        )
+
+    def test_extra_surrounding_whitespace(self):
+        """Leading/trailing whitespace is tolerated."""
+        parts, error = parse_case_remark("  C#1 A RESP AIRTIME-KSH50 B  ")
+        assert error is None
+        assert parts.case_number == "1"
+
+    def test_missing_resp_marker(self):
+        """Missing the RESP marker fails to parse."""
+        parts, error = parse_case_remark("C#37166 22505AA AIRTIME-KSH29400 d05")
+        assert parts is None
+        assert "does not match expected format" in error
+
+    def test_missing_case_prefix(self):
+        """Missing the C# prefix fails to parse."""
+        parts, error = parse_case_remark("37166 22505AA RESP AIRTIME-KSH29400 d05")
+        assert parts is None
+        assert error is not None
+
+    def test_non_airtime_type_fails(self):
+        """A transaction type other than AIRTIME fails to parse (falls back to raw text)."""
+        parts, error = parse_case_remark("C#37166 22505AA RESP DATA-KSH29400 d05")
+        assert parts is None
+        assert error is not None
+
+    def test_garbage_input(self):
+        """Arbitrary free text fails to parse."""
+        parts, error = parse_case_remark("not a case remark at all")
+        assert parts is None
+        assert error is not None
+
+    def test_empty_string(self):
+        """Empty string fails to parse."""
+        parts, error = parse_case_remark("")
+        assert parts is None
+        assert error is not None
+
+
+class TestFormatCaseRemark:
+    """Test formatting parsed case_remark pieces into the OpenFloat Remark string."""
+
+    def test_format(self):
+        parts = CaseRemarkParts(
+            case_number="37166", project_code="22505AA", amount="29400", activity_code="d05"
+        )
+        assert format_case_remark(parts) == "Case #37166 | 22505AA | RESP | AIRTIME KSH 29400 | d05"
