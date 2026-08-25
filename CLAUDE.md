@@ -28,6 +28,8 @@ These files are tracked despite `.gitignore` excluding `*.csv`/`*.xlsx` (force-a
 
 **Amount validation**: coerce to positive number; reject ≤0 or non-numeric; warn above KES 10,000 threshold.
 
+**Remark / case_remark**: the `Remark` output column is built from the input `case_remark` column when present — a manually-typed reference in the fixed format `C#<case_number> <project_code> RESP AIRTIME-KSH<amount> <activity_code>` (e.g. `C#37166 22505AA RESP AIRTIME-KSH29400 d05`). A well-formed value is reformatted to `Case #<case_number> | <project_code> | RESP | AIRTIME KSH <amount> | <activity_code>`. Priority order: well-formed `case_remark` → raw `case_remark` text verbatim (soft warning, parse failure) → legacy `"{project_name} - {Project_Activity}"` (when `case_remark` is empty/absent). The amount embedded in `case_remark` is cross-checked against the row's real `amount` column and warns (soft) on mismatch, but does not block the row. Any free-text value written to the output (Remark, Account Name) is sanitized against Excel formula injection (a leading `=`, `+`, `-`, or `@` gets a `'` prefix) before being written — see `writer.py::_sanitize_cell_value`.
+
 **Allowed Types**: 63 entries in the template. Note `SPA NAKURU RURAL ` has a trailing space — must be preserved verbatim.
 
 ## Architecture

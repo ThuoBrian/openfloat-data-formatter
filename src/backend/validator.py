@@ -16,7 +16,7 @@ import pandas as pd
 from .config import Settings, settings
 from .mapper import map_network
 from .models import FilteredCounts, IssueSeverity, ValidationIssue, ValidationReport
-from .normalizer import normalize_amount, normalize_phone, parse_case_remark
+from .normalizer import normalize_amount, normalize_phone, resolve_case_remark
 
 
 def validate(
@@ -116,12 +116,10 @@ def validate(
             filtered_counts.unmapped_network += 1
 
         # --- case_remark format check (soft warning, falls back to raw text) ---
-        # Note: an empty CSV/Excel cell reads as NaN, not "", so check pd.isna
-        # first — str(NaN) would otherwise become the literal string "nan".
-        case_remark_cell = row.get("case_remark", "")
-        case_remark_raw = "" if pd.isna(case_remark_cell) else str(case_remark_cell).strip()
+        case_remark_raw, case_remark_parts, case_remark_error = resolve_case_remark(
+            row.get("case_remark", "")
+        )
         if case_remark_raw:
-            _, case_remark_error = parse_case_remark(case_remark_raw)
             if case_remark_error is not None:
                 warnings.append(
                     ValidationIssue(
@@ -129,6 +127,18 @@ def validate(
                         severity=IssueSeverity.WARNING,
                         field="case_remark",
                         message=f"Row {row_num}: {case_remark_error} — using raw text as Remark",
+                    )
+                )
+            elif amount_error is None and float(case_remark_parts.amount) != amount_value:
+                warnings.append(
+                    ValidationIssue(
+                        row_number=row_num,
+                        severity=IssueSeverity.WARNING,
+                        field="case_remark",
+                        message=(
+                            f"Row {row_num}: case_remark amount (KSH {case_remark_parts.amount}) "
+                            f"does not match the Amount column ({amount_value})"
+                        ),
                     )
                 )
 

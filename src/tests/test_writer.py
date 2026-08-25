@@ -5,7 +5,7 @@ import pytest
 
 from backend.config import DEFAULT_TEMPLATE_PATH
 from backend.models import OutputRow
-from backend.writer import load_allowed_types, write_openfloat_excel
+from backend.writer import _sanitize_cell_value, load_allowed_types, write_openfloat_excel
 
 
 class TestLoadAllowedTypes:
@@ -145,3 +145,47 @@ class TestWriteOpenfloatExcel:
         assert ws.cell(row=2, column=4).value in ("", None)
         assert ws.cell(row=2, column=5).value in ("", None)
         wb.close()
+
+    def test_formula_injection_is_neutralized(self, allowed_types):
+        """A Remark/Account Name starting with '=' is written as text, not a live formula."""
+        rows = [
+            OutputRow(
+                **{
+                    "Account Type": "Safaricom Prepaid",
+                    "Account Name": "=HYPERLINK(\"http://evil\",\"click\")",
+                    "Account Number": "254712345678",
+                    "Till or Paybill Number": "",
+                    "Till or Paybill Business Name": "",
+                    "Notification Phone Number": "254712345678",
+                    "Amount": 150.0,
+                    "Remark": "=1+1",
+                }
+            ),
+        ]
+        buffer = write_openfloat_excel(rows, allowed_types)
+        buffer.seek(0)
+        wb = openpyxl.load_workbook(buffer)
+        ws = wb["Accounts"]
+        account_name_cell = ws.cell(row=2, column=2)
+        remark_cell = ws.cell(row=2, column=8)
+        # data_type 'f' means openpyxl treats it as a live formula; 's' is plain text.
+        assert account_name_cell.data_type != "f"
+        assert remark_cell.data_type != "f"
+        assert account_name_cell.value == "'=HYPERLINK(\"http://evil\",\"click\")"
+        assert remark_cell.value == "'=1+1"
+        wb.close()
+
+
+class TestSanitizeCellValue:
+    """Test the formula-injection guard directly."""
+
+    @pytest.mark.parametrize("trigger", ["=", "+", "-", "@"])
+    def test_prefixes_formula_trigger_chars(self, trigger):
+        value = f"{trigger}cmd|'/c calc'!A1"
+        assert _sanitize_cell_value(value) == f"'{value}"
+
+    def test_leaves_normal_text_untouched(self):
+        assert _sanitize_cell_value("Case #37166 | 22505AA | RESP") == "Case #37166 | 22505AA | RESP"
+
+    def test_leaves_non_string_untouched(self):
+        assert _sanitize_cell_value(150.0) == 150.0

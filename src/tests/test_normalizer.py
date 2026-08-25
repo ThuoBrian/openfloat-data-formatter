@@ -8,6 +8,7 @@ from backend.normalizer import (
     normalize_amount,
     normalize_phone,
     parse_case_remark,
+    resolve_case_remark,
 )
 
 
@@ -194,3 +195,33 @@ class TestFormatCaseRemark:
             case_number="37166", project_code="22505AA", amount="29400", activity_code="d05"
         )
         assert format_case_remark(parts) == "Case #37166 | 22505AA | RESP | AIRTIME KSH 29400 | d05"
+
+
+class TestResolveCaseRemark:
+    """Test the shared NaN-guard + parse helper used by both validator and transformer."""
+
+    def test_well_formed(self):
+        raw, parts, error = resolve_case_remark("C#37166 22505AA RESP AIRTIME-KSH29400 d05")
+        assert raw == "C#37166 22505AA RESP AIRTIME-KSH29400 d05"
+        assert parts.case_number == "37166"
+        assert error is None
+
+    def test_malformed(self):
+        raw, parts, error = resolve_case_remark("not a valid case remark")
+        assert raw == "not a valid case remark"
+        assert parts is None
+        assert error is not None
+
+    def test_nan_cell(self):
+        """A pandas NaN cell (empty CSV/Excel cell) resolves to empty, not the string 'nan'."""
+        raw, parts, error = resolve_case_remark(float("nan"))
+        assert raw == ""
+        assert parts is None
+        assert error is None
+
+    def test_missing_column_default(self):
+        """The typical row.get('case_remark', '') default of '' resolves cleanly."""
+        raw, parts, error = resolve_case_remark("")
+        assert raw == ""
+        assert parts is None
+        assert error is None

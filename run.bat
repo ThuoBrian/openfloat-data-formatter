@@ -1,5 +1,5 @@
 @echo off
-setlocal
+setlocal enabledelayedexpansion
 title OpenFloat Data Formatter
 
 echo OpenFloat Data Formatter
@@ -10,7 +10,7 @@ where uv >nul 2>&1
 if %errorlevel% neq 0 (
     echo Installing uv ^(one-time^)...
     powershell -ExecutionPolicy Bypass -Command "irm https://astral.sh/uv/install.ps1 | iex"
-    if %errorlevel% neq 0 (
+    if !errorlevel! neq 0 (
         echo.
         echo ERROR: Could not install uv. Check your internet connection and try again.
         pause
@@ -28,7 +28,7 @@ if "%APPDIR:~-1%"=="\" set "APPDIR=%APPDIR:~0,-1%"
 if not exist "%APPDIR%\.venv" (
     echo Setting up Python environment ^(one-time, this may take a few minutes^)...
     uv sync --python 3.12 --project "%APPDIR%"
-    if %errorlevel% neq 0 (
+    if !errorlevel! neq 0 (
         echo.
         echo ERROR: Could not set up Python environment.
         pause

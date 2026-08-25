@@ -48,7 +48,6 @@ PROCESSMAKER_COLUMNS = [
     "Project_Activity",
     "department",
     "survey",
-    "case_remark",
 ]
 
 

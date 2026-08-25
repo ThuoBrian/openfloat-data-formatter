@@ -19,6 +19,23 @@ import pandas as pd
 from .config import OPENFLOAT_ACCOUNTS_COLUMNS
 from .models import OutputRow
 
+# Leading characters that Excel/openpyxl treat as the start of a formula.
+_FORMULA_TRIGGER_CHARS = ("=", "+", "-", "@")
+
+
+def _sanitize_cell_value(value: str) -> str:
+    """Neutralize spreadsheet formula injection in a string cell value.
+
+    openpyxl auto-promotes any string starting with '=' (and Excel itself
+    also treats a leading '+', '-', or '@' as a formula prefix) to a live
+    formula cell. Since Account Name and Remark are built from free-typed
+    user input (unique_id, case_remark), prefix such values with a single
+    quote so they are written as plain text instead of executed on open.
+    """
+    if isinstance(value, str) and value.startswith(_FORMULA_TRIGGER_CHARS):
+        return f"'{value}"
+    return value
+
 
 def load_allowed_types(template_path: str | Path) -> list[str]:
     """Load the Allowed Types list from the OpenFloat reference template.
@@ -90,14 +107,14 @@ def write_openfloat_excel(
     # Write data rows
     for row in rows:
         ws_accounts.append([
-            row.account_type,
-            row.account_name,
-            row.account_number,
-            row.till_or_paybill_number,
-            row.till_or_paybill_business_name,
-            row.notification_phone_number,
+            _sanitize_cell_value(row.account_type),
+            _sanitize_cell_value(row.account_name),
+            _sanitize_cell_value(row.account_number),
+            _sanitize_cell_value(row.till_or_paybill_number),
+            _sanitize_cell_value(row.till_or_paybill_business_name),
+            _sanitize_cell_value(row.notification_phone_number),
             row.amount,
-            row.remark,
+            _sanitize_cell_value(row.remark),
         ])
 
     # --- Allowed Types sheet ---

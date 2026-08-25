@@ -10,7 +10,9 @@ Handles the normalization pipeline defined in the golden prompt §4.2:
 from __future__ import annotations
 
 import re
-from typing import NamedTuple
+from typing import Any, NamedTuple
+
+import pandas as pd
 
 
 def normalize_phone(
@@ -157,6 +159,28 @@ def parse_case_remark(raw: str) -> tuple[CaseRemarkParts | None, str | None]:
         ),
         None,
     )
+
+
+def resolve_case_remark(cell: Any) -> tuple[str, CaseRemarkParts | None, str | None]:
+    """Resolve a raw `case_remark` DataFrame cell and parse it in one step.
+
+    Centralizes the pandas NaN-guard + parse_case_remark call so validator.py
+    and transformer.py can't drift apart on how a case_remark cell is read.
+
+    Args:
+        cell: The raw cell value from `row.get("case_remark", "")`.
+
+    Returns:
+        A tuple of (case_remark_raw, parts, error). `parts` and `error` are
+        both None when case_remark_raw is empty (nothing to parse).
+    """
+    # An empty CSV/Excel cell reads as NaN, not "", so check pd.isna first —
+    # str(NaN) would otherwise become the literal string "nan".
+    raw = "" if pd.isna(cell) else str(cell).strip()
+    if not raw:
+        return raw, None, None
+    parts, error = parse_case_remark(raw)
+    return raw, parts, error
 
 
 def format_case_remark(parts: CaseRemarkParts) -> str:

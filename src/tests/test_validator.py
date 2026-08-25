@@ -124,14 +124,29 @@ class TestValidatorCaseRemark:
     """Test case_remark format checking (soft warning, row still included)."""
 
     def test_well_formed_case_remark_no_warning(self, minimal_df, default_config):
-        """A well-formed case_remark produces no warning."""
+        """A well-formed case_remark whose amount matches the Amount column produces no warning."""
+        # minimal_df's amount column is [150, 200] — the embedded amounts must match.
         minimal_df["case_remark"] = [
-            "C#37166 22505AA RESP AIRTIME-KSH29400 d05",
-            "C#37167 22505AA RESP AIRTIME-KSH1000 d05",
+            "C#37166 22505AA RESP AIRTIME-KSH150 d05",
+            "C#37167 22505AA RESP AIRTIME-KSH200 d05",
         ]
         report = validate(minimal_df, default_config)
         case_remark_warnings = [w for w in report.warnings if w.field == "case_remark"]
         assert len(case_remark_warnings) == 0
+
+    def test_amount_mismatch_warns(self, minimal_df, default_config):
+        """A case_remark amount that disagrees with the Amount column produces a warning."""
+        # Row 0's real amount is 150, but the case_remark claims 29400.
+        minimal_df["case_remark"] = [
+            "C#37166 22505AA RESP AIRTIME-KSH29400 d05",
+            "",
+        ]
+        report = validate(minimal_df, default_config)
+        case_remark_warnings = [w for w in report.warnings if w.field == "case_remark"]
+        assert len(case_remark_warnings) == 1
+        assert "does not match" in case_remark_warnings[0].message
+        # Soft warning only — row is still valid.
+        assert report.valid_rows == 2
 
     def test_malformed_case_remark_warns(self, minimal_df, default_config):
         """A malformed case_remark produces a warning but does not exclude the row."""
