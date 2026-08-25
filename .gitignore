@@ -1,0 +1,12 @@
+# Excel files
+*.xlsx
+*.xls
+*.xlsm
+*.xlsb
+*.csv
+
+# Excel lock/temp files
+~$*.xlsx
+~$*.xls
+~$*.xlsm
+*.tmp
