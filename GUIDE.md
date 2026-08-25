@@ -71,12 +71,3 @@ folder).
 **The black window shows an error and closed.**
 Try double-clicking `run.bat` again. If it still fails, take a screenshot of
 the error and send it to whoever gave you this tool.
-
-## Data Classification Reminder (IPA)
-
-Process Maker airtime exports contain personal data (phone numbers, project,
-and case details) and should be treated as **Confidential** under IPA's data
-classification policy. Keep the input files and downloaded output on
-IPA-approved storage, don't email them unencrypted, and don't paste real
-respondent data into Claude/ChatGPT or similar AI tools. Questions about data
-handling: **<researchsupport@poverty-action.org>**.
