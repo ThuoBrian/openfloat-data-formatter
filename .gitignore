@@ -10,3 +10,21 @@
 ~$*.xls
 ~$*.xlsm
 *.tmp
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+
+# Environment
+.env
+
+# IDE
+.vscode/
+.idea/
+.DS_Store
