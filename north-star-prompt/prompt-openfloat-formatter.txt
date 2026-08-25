@@ -1,0 +1,104 @@
+# 🌟 Airtime Data Formatter
+
+## North Star Prompt
+Build a lightweight local application that automates the airtime disbursement workflow by transforming Excel exports from **Process Maker** into the required **OpenFloat SaaS template**.  
+The tool must ensure accuracy, reduce manual effort, and provide a simple interface for staff to generate ready‑to‑upload files or push data directly via API.
+
+---
+
+## 🚀 Project Overview
+The Airtime Data Formatter (ADF) eliminates repetitive manual steps in the airtime workflow:
+1. Download data from **Process Maker** (Excel format).  
+2. Automatically transform and validate the data.  
+3. Output a clean, OpenFloat‑ready file.  
+4. (Optional) Push directly to **OpenFloat SaaS** via API.  
+
+---
+
+## 🎯 Goals
+- Automate manual formatting tasks.  
+- Reduce human error in airtime processing.  
+- Save time and scale for bulk uploads.  
+- Provide reliability, clear error handling, and maintainability.  
+
+---
+
+## 🛠 Tech Stack
+- **Backend:** Python (Pandas, OpenPyXL), FastAPI  
+- **Frontend:** React.js (optional UI)  
+- **Deployment:** Docker, Azure Functions / AWS Lambda (serverless option)  
+- **Integration:** OpenFloat API (if available), lightweight database for logs  
+
+---
+
+## 📂 Project Structure
+/airtime-data-formatter
+│── README.md
+│── src/
+│   ├── backend/        # Python transformation logic
+│   ├── frontend/       # React UI (optional)
+│   └── tests/          # Unit and integration tests
+
+---
+
+## ⚙️ Usage
+1. Export airtime data from **Process Maker**.  
+2. Upload the file into the **ADF tool**.  
+3. Download the OpenFloat‑ready file or push directly via API.  
+
+---
+
+## ✅ Roadmap
+- [x] Discovery: Understand the airtime disbursement problem  
+- [ ] Design: Define architecture and transformation logic  
+- [ ] Build: Develop the local formatter app  
+- [ ] Test: Validate accuracy and reliability  
+- [ ] Deploy: Roll out to end users with documentation  
+
+---
+
+## 📜 License
+MIT License (or your preferred license)
+
+---
+
+## 👥 Contributors
+- Project Lead: Brian Thuo  
+- Open to collaboration and contributions
+
+
+<prompt>
+
+📝 Initial Prompt – Airtime Data Formatter Project
+Title: [Design-001] – Local Airtime Data Formatter App
+
+Prompt:  
+You are building a local application that automates the manual airtime disbursement workflow. The tool must:
+
+Accept Excel exports from Process Maker.
+
+Automatically transform and validate the data to match the OpenFloat SaaS template.
+
+Output a clean, ready-to-upload file (or push directly via API if supported).
+
+Provide clear error handling, logging, and a simple user interface for non-technical staff.
+
+Goals:
+
+Eliminate repetitive manual formatting.
+
+Reduce human error in airtime processing.
+
+Save time and scale for bulk uploads.
+
+Ensure reliability and maintainability with a modern tech stack.
+
+Tech Stack Direction:
+
+Backend: Python (Pandas, OpenPyXL), FastAPI
+
+Frontend: React.js (optional UI)
+
+Deployment: Docker, serverless options (Azure Functions / AWS Lambda)
+
+Integration: OpenFloat API (if available), lightweight database for logs
