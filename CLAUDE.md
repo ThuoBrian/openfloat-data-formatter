@@ -34,7 +34,7 @@ These files are tracked despite `.gitignore` excluding `*.csv`/`*.xlsx` (force-a
 
 ## Architecture
 
-```
+```text
 src/backend/
   config.py        # Settings (Pydantic BaseSettings, env-overridable)
   models.py        # Pydantic v2 data models (InputRow, OutputRow, ValidationReport, etc.)
