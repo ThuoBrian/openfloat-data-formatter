@@ -37,7 +37,7 @@ These files are tracked despite `.gitignore` excluding `*.csv`/`*.xlsx` (force-a
 ```text
 src/backend/
   config.py        # Settings (Pydantic BaseSettings, env-overridable)
-  models.py        # Pydantic v2 data models (InputRow, OutputRow, ValidationReport, etc.)
+  models.py        # Pydantic v2 data models (OutputRow, ValidationReport, etc.)
   normalizer.py    # Phone number & amount normalization (pure functions)
   mapper.py        # Network → Account Type mapping (5-entry lookup)
   validator.py     # Input validation: consent, phone, network, amount, duplicates
@@ -46,7 +46,7 @@ src/backend/
   main.py          # FastAPI app: POST /transform, /validate, GET /health
 src/frontend/
   app.py           # Streamlit UI: upload, preview, validate, download
-src/tests/         # pytest suite (68 tests)
+src/tests/         # pytest suite (88 tests)
 ```
 
 Tech stack: Python 3.11+, Pandas, OpenPyXL, FastAPI, Pydantic v2, Streamlit.
@@ -56,7 +56,7 @@ Tech stack: Python 3.11+, Pandas, OpenPyXL, FastAPI, Pydantic v2, Streamlit.
 ```bash
 python -m venv venv && source venv/bin/activate   # Create/activate venv
 pip install -r requirements.txt                   # Install dependencies
-PYTHONPATH=src pytest src/tests/ -v               # Run all tests (68 tests)
+PYTHONPATH=src pytest src/tests/ -v               # Run all tests (88 tests)
 PYTHONPATH=src pytest src/tests/test_normalizer.py -v  # Run single test module
 PYTHONPATH=src pytest src/tests/ -k "test_phone" -v    # Run tests by name pattern
 uvicorn src.backend.main:app --reload             # Run FastAPI server (port 8000)

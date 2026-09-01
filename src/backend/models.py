@@ -1,7 +1,6 @@
 """Pydantic data models for the OpenFloat Data Formatter.
 
 These models define the data contracts for:
-- Input rows (Process Maker export)
 - Output rows (OpenFloat template)
 - Validation results (errors and warnings)
 - Transformation results
@@ -29,24 +28,8 @@ class IssueSeverity(str, Enum):
 
 
 # ---------------------------------------------------------------------------
-# Input / Output Row Models
+# Output Row Model
 # ---------------------------------------------------------------------------
-
-
-class InputRow(BaseModel):
-    """A single row from a Process Maker export file."""
-
-    unique_id: str
-    consent: str
-    airtime_phone: str
-    network: str
-    submissiondate: str
-    today: str
-    amount: str | int | float
-    project_name: str
-    Project_Activity: str
-    department: str
-    survey: str
 
 
 class OutputRow(BaseModel):
