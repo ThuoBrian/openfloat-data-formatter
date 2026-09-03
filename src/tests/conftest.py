@@ -20,8 +20,14 @@ sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 @pytest.fixture
 def sample_csv_path():
-    """Path to the sample Process Maker CSV file."""
-    assert SAMPLE_CSV_PATH.exists(), f"Sample CSV not found at {SAMPLE_CSV_PATH}"
+    """Path to the sample Process Maker CSV file.
+
+    This file is not committed to the repo (see CLAUDE.md's "Reference Data
+    in docs/" table) — tests depending on it skip rather than error when it's
+    absent, instead of failing on every fresh clone.
+    """
+    if not SAMPLE_CSV_PATH.exists():
+        pytest.skip(f"Sample CSV not found at {SAMPLE_CSV_PATH} — see CLAUDE.md")
     return SAMPLE_CSV_PATH
 
 

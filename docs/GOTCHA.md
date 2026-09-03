@@ -87,14 +87,15 @@ types.append(str(value).strip())
 
 **Problem:** The `.gitignore` blocks CSV and Excel files, but `docs/` contains reference data files in both formats that must be tracked.
 
-**Fix:** These files were force-added with `git add -f`. If you ever need to re-add them after a `git rm` or similar operation, use:
+**Fix:** The `.xlsx` reference files that actually exist are force-added with `git add -f`:
 ```bash
-git add -f docs/1_ProcessMaker_Bridges_Combined_Airtime_Report.csv
 git add -f docs/openfloat-transactions-template.xlsx
-git add -f docs/Final_Report_11364-26082507344787.xlsx
+git add -f docs/processmaker-input-template.xlsx
 ```
 
-**Where it bites:** Any `git add .` or `git add docs/` will silently skip these files. They must always be force-added.
+`docs/1_ProcessMaker_Bridges_Combined_Airtime_Report.csv` and `docs/Final_Report_11364-26082507344787.xlsx` are **not present** in this repo (lost, no backup found) — there is nothing to force-add for them currently. `src/tests/conftest.py::sample_csv_path` skips (rather than errors) tests that depend on the missing CSV. If either file is ever recovered, force-add it the same way and this note can be removed.
+
+**Where it bites:** Any `git add .` or `git add docs/` will silently skip the `.xlsx` files above — they must always be force-added.
 
 ---
 
