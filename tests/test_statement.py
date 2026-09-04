@@ -10,7 +10,7 @@ from datetime import datetime
 import pandas as pd
 import pytest
 
-from backend.statement import (
+from openfloat_formatter.statement import (
     build_statement_report,
     is_successful_status,
     parse_statement_date,

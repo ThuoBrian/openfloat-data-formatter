@@ -8,16 +8,11 @@ import pytest
 from openpyxl import Workbook
 
 # Project root directory
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 # Reference data paths
 SAMPLE_CSV_PATH = PROJECT_ROOT / "docs" / "1_ProcessMaker_Bridges_Combined_Airtime_Report.csv"
 TEMPLATE_PATH = PROJECT_ROOT / "docs" / "openfloat-transactions-template.xlsx"
-
-# Add src to path for imports
-import sys
-
-sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 
 @pytest.fixture
@@ -49,7 +44,7 @@ def sample_df(sample_csv_path):
 @pytest.fixture
 def default_config():
     """Default Settings instance for testing."""
-    from backend.config import Settings
+    from openfloat_formatter.config import Settings
 
     return Settings(
         max_amount_threshold=10_000,

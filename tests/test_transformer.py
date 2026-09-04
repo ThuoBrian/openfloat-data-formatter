@@ -3,8 +3,8 @@
 import pandas as pd
 import pytest
 
-from backend.config import Settings
-from backend.transformer import transform, _build_output_rows
+from openfloat_formatter.config import Settings
+from openfloat_formatter.transformer import transform, _build_output_rows
 
 
 class TestTransformWithSampleData:

@@ -6,14 +6,13 @@ of valid example rows, in-cell dropdown validation for the two enum-like
 columns (`consent`, `network`), and an `Instructions` sheet documenting the
 per-column format rules (see CLAUDE.md "Key Domain Rules").
 
-Column order is imported from `src.backend.config` so this template can
+Column order is imported from `openfloat_formatter.config` so this template can
 never drift from the schema the pipeline actually validates against.
 
-Usage:
-    python scripts/generate_processmaker_template.py
+Usage (repo root, after `uv sync`):
+    uv run python scripts/generate_processmaker_template.py
 """
 
-import sys
 from pathlib import Path
 
 from openpyxl import Workbook
@@ -22,10 +21,9 @@ from copy import copy
 from openpyxl.styles import Font
 from openpyxl.worksheet.datavalidation import DataValidation
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(PROJECT_ROOT / "src"))
+from openfloat_formatter.config import DEFAULT_NETWORK_MAP, PROCESSMAKER_COLUMNS
 
-from backend.config import DEFAULT_NETWORK_MAP, PROCESSMAKER_COLUMNS  # noqa: E402
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 OUTPUT_PATH = PROJECT_ROOT / "docs" / "processmaker-input-template.xlsx"
 

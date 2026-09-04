@@ -20,20 +20,21 @@ if %errorlevel% neq 0 (
     for /f "tokens=*" %%i in ('powershell -Command "[System.Environment]::GetEnvironmentVariable(\"PATH\",\"User\")"') do set "PATH=%%i;%PATH%"
 )
 
-:: ── 2. Create virtual environment and install dependencies ────────────────────
+:: ── 2. Set up the Python environment ──────────────────────────────────────────
 :: Strip trailing backslash from %~dp0 before passing to --project
 set "APPDIR=%~dp0"
 if "%APPDIR:~-1%"=="\" set "APPDIR=%APPDIR:~0,-1%"
 
-if not exist "%APPDIR%\.venv" (
-    echo Setting up Python environment ^(one-time, this may take a few minutes^)...
-    uv sync --python 3.12 --project "%APPDIR%"
-    if !errorlevel! neq 0 (
-        echo.
-        echo ERROR: Could not set up Python environment.
-        pause
-        exit /b 1
-    )
+:: uv sync is idempotent: it creates .venv on first run and self-heals on every
+:: update (the installer wipes the folder), so run it unconditionally.
+:: --no-dev: end users don't need pytest/httpx.
+echo Setting up Python environment ^(this may take a few minutes on first run^)...
+uv sync --no-dev --python 3.12 --project "%APPDIR%"
+if !errorlevel! neq 0 (
+    echo.
+    echo ERROR: Could not set up Python environment.
+    pause
+    exit /b 1
 )
 
 :: ── 3. Launch the app ─────────────────────────────────────────────────────────
@@ -41,7 +42,7 @@ echo.
 echo Starting app. A browser tab will open shortly.
 echo Close this window to stop it.
 echo.
-"%APPDIR%\.venv\Scripts\streamlit.exe" run "%APPDIR%\src\frontend\app.py" --server.address=127.0.0.1
+"%APPDIR%\.venv\Scripts\streamlit.exe" run "%APPDIR%\src\openfloat_formatter\ui\app.py" --server.address=127.0.0.1
 
 if errorlevel 1 (
     echo.

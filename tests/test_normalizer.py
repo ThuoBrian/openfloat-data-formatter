@@ -2,7 +2,7 @@
 
 import pytest
 
-from backend.normalizer import (
+from openfloat_formatter.normalizer import (
     CaseRemarkParts,
     format_case_remark,
     normalize_amount,

@@ -16,15 +16,10 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
-# Ensure src is importable
-import sys
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-from backend.config import DEFAULT_TEMPLATE_PATH, Settings
-from backend.statement import build_statement_report
-from backend.transformer import transform
-from backend.validator import validate
+from openfloat_formatter.config import DEFAULT_TEMPLATE_PATH, Settings
+from openfloat_formatter.statement import build_statement_report
+from openfloat_formatter.transformer import transform
+from openfloat_formatter.validator import validate
 
 
 def main():

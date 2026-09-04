@@ -15,8 +15,19 @@ dependencies = [
     "python-dotenv>=1.0.0",
 ]
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
     "pytest>=7.4.0",
     "httpx>=0.25.0",
 ]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+# The import package name differs from the distribution name, so declare it.
+packages = ["src/openfloat_formatter"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

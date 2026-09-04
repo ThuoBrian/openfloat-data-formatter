@@ -3,9 +3,9 @@
 import openpyxl
 import pytest
 
-from backend.config import DEFAULT_TEMPLATE_PATH
-from backend.models import OutputRow
-from backend.writer import _sanitize_cell_value, load_allowed_types, write_openfloat_excel
+from openfloat_formatter.config import DEFAULT_TEMPLATE_PATH
+from openfloat_formatter.models import OutputRow
+from openfloat_formatter.writer import _sanitize_cell_value, load_allowed_types, write_openfloat_excel
 
 
 class TestLoadAllowedTypes:

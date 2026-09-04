@@ -2,8 +2,8 @@
 
 import pytest
 
-from backend.mapper import map_network
-from backend.config import DEFAULT_NETWORK_MAP
+from openfloat_formatter.mapper import map_network
+from openfloat_formatter.config import DEFAULT_NETWORK_MAP
 
 
 class TestMapNetwork:
