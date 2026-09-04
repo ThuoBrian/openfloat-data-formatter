@@ -51,6 +51,10 @@ anything first.
 
 ## Using the App
 
+The app has two modes — switch between them in the sidebar on the left.
+
+### Transform mode (prepare an upload)
+
 1. Upload your Process Maker CSV or Excel export.
 2. Check the **Data Preview** and **Validation Report** — this tells you how
    many rows are valid and flags anything wrong (missing consent, bad phone
@@ -58,11 +62,28 @@ anything first.
 3. Click **Download OpenFloat Excel** to get the file ready for upload to
    OpenFloat.
 
+### Statement Report mode (check what actually happened)
+
+1. After OpenFloat finishes a disbursement, download its **Transaction
+   Statement** export (see FAQ below).
+2. In the app, upload one or more statement files. You'll see the totals —
+   how many transactions succeeded, how many didn't, and how much money
+   actually went out — plus a list of any unsuccessful transactions
+   (e.g. "Reversed") that need follow-up.
+3. Optional: also upload your original Process Maker file. The app then
+   shows, per phone number, who was paid, who was on the statement but
+   unpaid, and who never appeared on the statement at all.
+
 ## FAQ
 
 **Does my data leave my laptop?**
 No. The app processes your file locally; nothing is uploaded to the internet
 (only the one-time setup step downloads Python packages, not your data).
+
+**What is a "Transaction Statement"?**
+The report file OpenFloat produces after it processes your upload. It lists
+every transaction it attempted — who got the airtime, how much, and whether
+it succeeded. Statement Report mode reads these files.
 
 **Where does the downloaded file go?**
 Wherever your browser normally saves downloads (usually your Downloads

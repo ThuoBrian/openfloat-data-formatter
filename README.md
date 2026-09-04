@@ -1,16 +1,44 @@
 # OpenFloat Data Formatter
 
-Transforms Process Maker airtime disbursement exports (CSV/Excel) into the
-OpenFloat SaaS upload template format.
+Turns Process Maker airtime exports into OpenFloat-ready upload files —
+and reports which disbursements actually succeeded. Runs entirely on your
+own laptop; your data is never sent anywhere remote.
 
-```
-Process Maker CSV → validate → normalize → map → OpenFloat-ready .xlsx
-```
+## Install (no technical skills needed)
 
-## For end users
+1. Open **PowerShell** on Windows 10/11 (search for it in the Start menu).
+2. Paste this command and press Enter:
 
-Not a developer? See **[GUIDE.md](GUIDE.md)** — one PowerShell command
-installs and runs the app, no Python or Git required.
+   ```powershell
+   irm https://raw.githubusercontent.com/ThuoBrian/openfloat-data-formatter/main/install/install.ps1 | iex
+   ```
+
+3. A window asks where to install (Desktop by default) — pick a folder or
+   just press OK. The app then sets itself up and opens in your browser.
+
+The first run needs an internet connection (~150–250 MB); after that it
+works fully offline.
+
+Full walkthrough — starting the app later, updates, using both modes, FAQ:
+**[GUIDE.md](GUIDE.md)**
+
+## What it does
+
+The app has two modes, picked in the sidebar:
+
+- **Transform** — upload a Process Maker export; the app checks every row
+  (consent, phone numbers, network, amounts, duplicates), tells you exactly
+  what's wrong, and builds the OpenFloat-ready Excel file to upload.
+- **Statement Report** — upload the Transaction Statement file(s) OpenFloat
+  gives you after disbursement; the app reports successful vs unsuccessful
+  transactions and totals per case — and, if you also add your original
+  Process Maker file, who was paid, who wasn't, and who never appeared on
+  the statement.
+
+Nothing is ever silently dropped or hidden: every filtered row and flagged
+discrepancy is reported.
+
+---
 
 ## For developers
 
@@ -28,22 +56,10 @@ uv sync --python 3.12    # one-time setup (re-run after dependency changes)
 uv run pytest -v   # run the test suite
 ```
 
-## What it does
+Pipeline: `Process Maker CSV → validate → normalize → map → OpenFloat-ready .xlsx`.
+Full domain rules and architecture: [CLAUDE.md](CLAUDE.md).
 
-- **Validates** input rows: consent, phone format, network, amount, duplicates
-  — reports every issue, never silently drops data.
-- **Normalizes** phone numbers to `254XXXXXXXXX` and coerces amounts to
-  positive floats.
-- **Maps** network names to OpenFloat account types (Safaricom, Airtel,
-  Telkom, ...).
-- **Builds** the Remark column from a manually-typed `case_remark` reference
-  when present, falling back to `project_name - Project_Activity`.
-- **Writes** a two-sheet `.xlsx` (Accounts + Allowed Types) matching the
-  OpenFloat upload template exactly.
-
-See [CLAUDE.md](CLAUDE.md) for the full domain rules and architecture.
-
-## Project structure
+### Project structure
 
 ```
 src/openfloat_formatter/   the Python package: validation, normalization,
@@ -55,6 +71,6 @@ scripts/                    maintenance scripts (e.g. template generator)
 install/                    one-liner installer for non-technical users
 ```
 
-## Stack
+### Stack
 
 Python 3.11+ · Pandas · OpenPyXL · FastAPI · Pydantic v2 · Streamlit
