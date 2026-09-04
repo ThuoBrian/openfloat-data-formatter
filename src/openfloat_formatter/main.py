@@ -1,15 +1,21 @@
 """FastAPI application for the OpenFloat Data Formatter.
 
-Provides REST endpoints for file upload, validation, and transformation.
+Provides REST endpoints for file upload, validation, transformation, and
+statement reporting.
 
 Endpoints:
-    POST /transform  - Upload CSV/Excel, download OpenFloat-ready .xlsx
-    POST /validate   - Upload CSV/Excel, get JSON validation report
-    GET  /health     - Health check
+    POST /transform         - Upload CSV/Excel, download OpenFloat-ready .xlsx
+    POST /validate          - Upload CSV/Excel, get JSON validation report
+    POST /statement-report  - Upload OpenFloat Transaction Statement export(s),
+                              get a JSON report on successful vs unsuccessful
+                              transactions (optionally reconciled against a
+                              Process Maker input)
+    GET  /health            - Health check
 """
 
 from __future__ import annotations
 
+import io
 import tempfile
 from pathlib import Path
 
@@ -17,12 +23,13 @@ from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
+import pandas as pd
+
 from .config import settings
-from .models import ValidationReport
+from .models import StatementReport, ValidationReport
+from .statement import build_statement_report
 from .transformer import transform
 from .validator import validate as run_validation
-
-import pandas as pd
 
 app = FastAPI(
     title="OpenFloat Data Formatter",
@@ -30,7 +37,9 @@ app = FastAPI(
     version="0.1.0",
 )
 
-# CORS middleware for Streamlit frontend
+# CORS for browser-based API clients. The bundled Streamlit UI does not call
+# this API (it imports the pipeline modules directly); the API exists for
+# external/scripted consumers.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -94,6 +103,33 @@ async def transform_file(file: UploadFile = File(...)):
     )
 
 
+@app.post("/statement-report", response_model=StatementReport)
+async def statement_report(
+    statement_files: list[UploadFile] = File(...),
+    input_file: UploadFile | None = File(None),
+):
+    """Report on successful vs unsuccessful OpenFloat disbursements.
+
+    Accepts one or more 'Transaction Statement' exports plus an optional
+    Process Maker input (enables reconciliation). Statement files are parsed
+    in memory; a statement with structural problems lands in `errors` and
+    does not fail the request — only a request where nothing parses is
+    useless, and even then the response is a valid (empty) report.
+
+    JSON shape note: `remark_parts` serializes as a positional array
+    (`[case_number, project_code, amount, activity_code]`) because
+    `CaseRemarkParts` is a NamedTuple.
+    """
+    input_df = await _read_uploaded_file(input_file) if input_file else None
+    report = build_statement_report(
+        [io.BytesIO(await statement_file.read()) for statement_file in statement_files],
+        source_names=[statement_file.filename for statement_file in statement_files],
+        input_df=input_df,
+        config=settings,
+    )
+    return report
+
+
 async def _read_uploaded_file(file: UploadFile) -> pd.DataFrame:
     """Read an uploaded file into a pandas DataFrame.
 
@@ -103,12 +139,8 @@ async def _read_uploaded_file(file: UploadFile) -> pd.DataFrame:
     content = await file.read()
 
     if suffix == ".csv":
-        import io
-
         return pd.read_csv(io.BytesIO(content))
     elif suffix in (".xlsx", ".xls", ".xlsm"):
-        import io
-
         return pd.read_excel(io.BytesIO(content))
     else:
         raise HTTPException(

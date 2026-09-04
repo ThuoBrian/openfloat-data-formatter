@@ -57,8 +57,11 @@ def transform(
     # Step 4: Load Allowed Types from reference template
     allowed_types = load_allowed_types(config.openfloat_template_path)
 
-    # Step 5: Write output Excel
-    output_buffer = write_openfloat_excel(output_rows, allowed_types)
+    # Step 5: Write output Excel — when every row was filtered out there is
+    # nothing to upload, so signal that with output=None rather than shipping
+    # an empty Accounts sheet (the API's 422 and the UI's "no output" branch
+    # both rely on this).
+    output_buffer = write_openfloat_excel(output_rows, allowed_types) if output_rows else None
 
     return TransformResult(
         output=output_buffer,
