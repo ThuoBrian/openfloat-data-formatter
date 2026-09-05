@@ -16,6 +16,8 @@ Everything below is a summary; CLAUDE.md has the details.
 ```bash
 uv sync --python 3.12   # one-time setup (no venv activation, no PYTHONPATH)
 uv run pytest -v        # run the test suite
+uv run ruff check .     # lint (config in pyproject.toml; CI enforces)
+uv run mypy             # type-check src + tests (CI enforces)
 ./start.sh ui           # Streamlit UI  → http://localhost:8501
 ./start.sh api          # FastAPI       → http://localhost:8000/docs
 ```

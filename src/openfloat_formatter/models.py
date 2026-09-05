@@ -10,21 +10,19 @@ These models define the data contracts for:
 from __future__ import annotations
 
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from io import BytesIO
-from typing import Any
 
 from pydantic import BaseModel, Field
 
 from .normalizer import CaseRemarkParts
-
 
 # ---------------------------------------------------------------------------
 # Enums
 # ---------------------------------------------------------------------------
 
 
-class IssueSeverity(str, Enum):
+class IssueSeverity(StrEnum):
     """Severity of a validation issue."""
 
     ERROR = "error"  # Row is excluded from output

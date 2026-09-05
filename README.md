@@ -62,6 +62,7 @@ uv sync --python 3.12    # one-time setup (re-run after dependency changes)
 ./start.sh both    # both at once (start.bat on Windows)
 
 uv run pytest -v   # run the test suite
+uv run ruff check . && uv run mypy   # lint + type-check (CI enforces these too)
 ```
 
 Pipeline: `Process Maker CSV → validate → normalize → map → OpenFloat-ready .xlsx`.

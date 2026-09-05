@@ -66,7 +66,7 @@ The package is installed editable via `uv sync` (pyproject + uv.lock are the sin
 - `scripts/` — one-off/maintenance scripts, e.g. `generate_processmaker_template.py` (regenerates `docs/processmaker-input-template.xlsx`)
 - `install/`, plus `run.bat`/`start.bat`/`start.sh` at the repo root — installer/launcher scripts for non-technical users (all uv-based)
 - `docs/` — reference data files (table above) plus `GOTCHA.md` — development pitfalls and non-obvious behaviors; read it before debugging surprising pandas/openpyxl/template behavior
-- `.github/` — GitHub metadata: `PULL_REQUEST_TEMPLATE.md`, CI workflow
+- `.github/` — GitHub metadata: `PULL_REQUEST_TEMPLATE.md`, CI workflow (ruff + mypy on Ubuntu, pytest on Ubuntu + Windows)
 
 ## Build & Run Commands
 
@@ -77,6 +77,8 @@ uv sync --python 3.12                        # Set up / refresh the environment
 uv run pytest -v                             # Run the full test suite
 uv run pytest tests/test_normalizer.py -v    # Run single test module
 uv run pytest -k "test_phone" -v              # Run tests by name pattern
+uv run ruff check .                           # Lint (CI runs this; config in pyproject.toml)
+uv run mypy                                   # Type-check src + tests (CI runs this)
 uv run uvicorn openfloat_formatter.main:app --reload   # Run FastAPI server (port 8000)
 uv run streamlit run src/openfloat_formatter/ui/app.py  # Run Streamlit UI (port 8501)
 uv run python scripts/generate_processmaker_template.py # Regenerate docs/processmaker-input-template.xlsx

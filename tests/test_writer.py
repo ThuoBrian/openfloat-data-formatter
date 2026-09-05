@@ -3,9 +3,12 @@
 import openpyxl
 import pytest
 
-from openfloat_formatter.config import DEFAULT_TEMPLATE_PATH
 from openfloat_formatter.models import OutputRow
-from openfloat_formatter.writer import _sanitize_cell_value, load_allowed_types, write_openfloat_excel
+from openfloat_formatter.writer import (
+    _sanitize_cell_value,
+    load_allowed_types,
+    write_openfloat_excel,
+)
 
 
 class TestLoadAllowedTypes:
@@ -32,7 +35,7 @@ class TestLoadAllowedTypes:
             load_allowed_types("/nonexistent/path.xlsx")
 
     def test_expected_type_count(self, template_path):
-        """The template contains exactly 63 allowed types (header row 'Mpesa' is data, not a header)."""
+        """The template has exactly 63 allowed types ('Mpesa' is data, not a header)."""
         types = load_allowed_types(template_path)
         assert len(types) == 63
 
@@ -185,7 +188,8 @@ class TestSanitizeCellValue:
         assert _sanitize_cell_value(value) == f"'{value}"
 
     def test_leaves_normal_text_untouched(self):
-        assert _sanitize_cell_value("Case #37166 | 22505AA | RESP") == "Case #37166 | 22505AA | RESP"
+        text = "Case #37166 | 22505AA | RESP"
+        assert _sanitize_cell_value(text) == text
 
     def test_leaves_non_string_untouched(self):
         assert _sanitize_cell_value(150.0) == 150.0

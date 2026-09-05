@@ -3,7 +3,6 @@
 import pytest
 
 from openfloat_formatter.mapper import map_network
-from openfloat_formatter.config import DEFAULT_NETWORK_MAP
 
 
 class TestMapNetwork:
@@ -29,8 +28,8 @@ class TestMapNetwork:
         """Unrecognized network returns an error."""
         result, error = map_network("Orange")
         assert result == ""
-        assert "Unrecognized" in error
-        assert "Orange" in error
+        assert "Unrecognized" in (error or "")
+        assert "Orange" in (error or "")
 
     def test_empty_network(self):
         """Empty string network returns an error."""

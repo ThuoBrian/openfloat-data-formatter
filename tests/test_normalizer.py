@@ -1,6 +1,5 @@
 """Tests for the normalizer module — phone number and amount normalization."""
 
-import pytest
 
 from openfloat_formatter.normalizer import (
     CaseRemarkParts,
@@ -61,17 +60,17 @@ class TestNormalizePhone:
         """Number that is too short after stripping."""
         result, error = normalize_phone("123")
         assert result == ""
-        assert "not 9 digits" in error
+        assert "not 9 digits" in (error or "")
 
     def test_too_long(self):
         """Number that is too long after stripping prefixes."""
         result, error = normalize_phone("25478527130999")
         assert result == ""
-        assert "not 9 digits" in error
+        assert "not 9 digits" in (error or "")
 
     def test_non_numeric(self):
         """Non-numeric input."""
-        result, error = normalize_phone("abcdefghi")
+        result, _ = normalize_phone("abcdefghi")
         assert result == ""
 
     def test_empty_string(self):
@@ -81,7 +80,7 @@ class TestNormalizePhone:
         assert error is not None
 
     def test_254_with_leading_zero_after_strip(self):
-        """254 prefix removed, 9 digits remain (012345678): kept as-is since it's already 9 digits."""
+        """254 stripped, leaving 9 digits (012345678) — kept as-is, already 9 digits."""
         result, error = normalize_phone("254012345678")
         assert result == "254012345678"
         assert error is None
@@ -118,19 +117,19 @@ class TestNormalizeAmount:
         """Zero amount should be rejected."""
         result, error = normalize_amount(0)
         assert result == 0.0
-        assert "not positive" in error
+        assert "not positive" in (error or "")
 
     def test_negative_amount(self):
         """Negative amount should be rejected."""
         result, error = normalize_amount(-50)
         assert result == 0.0
-        assert "not positive" in error
+        assert "not positive" in (error or "")
 
     def test_non_numeric_amount(self):
         """Non-numeric amount should be rejected."""
         result, error = normalize_amount("abc")
         assert result == 0.0
-        assert "not numeric" in error
+        assert "not numeric" in (error or "")
 
     def test_empty_string_amount(self):
         """Empty string amount should be rejected."""
@@ -154,13 +153,14 @@ class TestParseCaseRemark:
         """Leading/trailing whitespace is tolerated."""
         parts, error = parse_case_remark("  C#1 A RESP AIRTIME-KSH50 B  ")
         assert error is None
+        assert parts is not None
         assert parts.case_number == "1"
 
     def test_missing_resp_marker(self):
         """Missing the RESP marker fails to parse."""
         parts, error = parse_case_remark("C#37166 22505AA AIRTIME-KSH29400 d05")
         assert parts is None
-        assert "does not match expected format" in error
+        assert "does not match expected format" in (error or "")
 
     def test_missing_case_prefix(self):
         """Missing the C# prefix fails to parse."""
@@ -203,6 +203,7 @@ class TestResolveCaseRemark:
     def test_well_formed(self):
         raw, parts, error = resolve_case_remark("C#37166 22505AA RESP AIRTIME-KSH29400 d05")
         assert raw == "C#37166 22505AA RESP AIRTIME-KSH29400 d05"
+        assert parts is not None
         assert parts.case_number == "37166"
         assert error is None
 

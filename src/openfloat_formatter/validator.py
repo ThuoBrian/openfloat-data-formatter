@@ -97,7 +97,10 @@ def validate(
                     row_number=row_num,
                     severity=IssueSeverity.WARNING,
                     field="amount",
-                    message=f"Row {row_num}: Amount {amount_value} exceeds threshold {config.max_amount_threshold}",
+                    message=(
+                        f"Row {row_num}: Amount {amount_value} exceeds "
+                        f"threshold {config.max_amount_threshold}"
+                    ),
                 )
             )
 
@@ -129,7 +132,11 @@ def validate(
                         message=f"Row {row_num}: {case_remark_error} — using raw text as Remark",
                     )
                 )
-            elif amount_error is None and float(case_remark_parts.amount) != amount_value:
+            elif (
+                amount_error is None
+                and case_remark_parts is not None
+                and float(case_remark_parts.amount) != amount_value
+            ):
                 warnings.append(
                     ValidationIssue(
                         row_number=row_num,
@@ -149,7 +156,7 @@ def validate(
 
     # --- Duplicate phone detection (soft warning) ---
     phone_counts: Counter[str] = Counter()
-    for idx, row in df.iterrows():
+    for _idx, row in df.iterrows():
         phone_raw = str(row.get("airtime_phone", "")).strip()
         phone_key, _ = normalize_phone(phone_raw, config.default_country_prefix)
         if phone_key:  # Only count valid phones
@@ -169,7 +176,10 @@ def validate(
                     row_number=dup_rows[0],
                     severity=IssueSeverity.WARNING,
                     field="airtime_phone",
-                    message=f"Duplicate phone number {phone} appears on rows {', '.join(str(r) for r in dup_rows)}",
+                    message=(
+                        f"Duplicate phone number {phone} appears on rows "
+                        f"{', '.join(str(r) for r in dup_rows)}"
+                    ),
                 )
             )
 

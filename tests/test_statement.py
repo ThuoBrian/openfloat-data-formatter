@@ -107,7 +107,7 @@ class TestParseStatementFile:
             rows=[_txn(), _txn(phone=254798765432, amount=200)],
             footer_total=300,
         )
-        transactions, footer_total, warnings, errors = parse_statement_file(buffer)
+        transactions, _footer_total, _warnings, errors = parse_statement_file(buffer)
         assert errors == []
         assert len(transactions) == 2
         first = transactions[0]
@@ -122,7 +122,7 @@ class TestParseStatementFile:
     def test_header_without_reference_id(self, make_statement_workbook):
         """12-column exports (no 'Reference Id') parse; reference_id stays empty."""
         buffer = make_statement_workbook(rows=[_txn()], include_reference_id=False)
-        transactions, _, warnings, errors = parse_statement_file(buffer)
+        transactions, _, _warnings, errors = parse_statement_file(buffer)
         assert errors == []
         assert transactions[0].reference_id == ""
 
@@ -131,7 +131,7 @@ class TestParseStatementFile:
         buffer = make_statement_workbook(
             rows=[_txn(status="Reversed", amount=None, **{"Reference Id": 18492036})]
         )
-        transactions, _, warnings, errors = parse_statement_file(buffer)
+        transactions, _, _warnings, errors = parse_statement_file(buffer)
         assert errors == []
         assert transactions[0].status == "Reversed"
         assert transactions[0].reference_id == "18492036"
@@ -139,7 +139,7 @@ class TestParseStatementFile:
     def test_footer_row_captured_not_counted(self, make_statement_workbook):
         """The grand-total footer row becomes footer_total, not a transaction."""
         buffer = make_statement_workbook(rows=[_txn()], footer_total=100)
-        transactions, footer_total, warnings, errors = parse_statement_file(buffer)
+        transactions, footer_total, _warnings, errors = parse_statement_file(buffer)
         assert errors == []
         assert len(transactions) == 1
         assert footer_total == 100.0
@@ -155,7 +155,7 @@ class TestParseStatementFile:
         workbook["Transaction Statement"].append([None] * 12 + [100])
         buffer.seek(0)
 
-        transactions, footer_total, warnings, errors = parse_statement_file(buffer)
+        transactions, footer_total, _warnings, errors = parse_statement_file(buffer)
         assert errors == []
         assert len(transactions) == 1
         assert footer_total == 100.0
@@ -165,7 +165,7 @@ class TestParseStatementFile:
         buffer = make_statement_workbook(
             rows=[_txn(), _txn(status="Reversed", amount=None, phone=254722345678)]
         )
-        transactions, _, warnings, errors = parse_statement_file(buffer)
+        transactions, _, _warnings, errors = parse_statement_file(buffer)
         assert errors == []
         reversed_row = transactions[1]
         assert reversed_row.amount is None
@@ -174,14 +174,14 @@ class TestParseStatementFile:
     def test_account_name_string_variant(self, make_statement_workbook):
         """String account ids like 'I220008' are kept verbatim."""
         buffer = make_statement_workbook(rows=[_txn(**{"Account Name": "I220008"})])
-        transactions, _, warnings, errors = parse_statement_file(buffer)
+        transactions, _, _warnings, errors = parse_statement_file(buffer)
         assert errors == []
         assert transactions[0].account_name == "I220008"
 
     def test_unknown_status_counted_not_crash(self, make_statement_workbook):
         """Unknown statuses classify as unsuccessful without raising."""
         buffer = make_statement_workbook(rows=[_txn(status="Failed", amount=None)])
-        transactions, _, warnings, errors = parse_statement_file(buffer)
+        transactions, _, _warnings, errors = parse_statement_file(buffer)
         assert errors == []
         assert transactions[0].status == "Failed"
         assert not transactions[0].is_successful
@@ -203,7 +203,7 @@ class TestParseStatementFile:
         workbook.save(modified)
         modified.seek(0)
 
-        transactions, footer_total, warnings, errors = parse_statement_file(modified)
+        transactions, _footer_total, _warnings, errors = parse_statement_file(modified)
         assert transactions == []
         assert len(errors) == 1
         assert "Remark" in errors[0]
@@ -211,7 +211,7 @@ class TestParseStatementFile:
     def test_missing_sheet_returns_error(self, make_statement_workbook):
         """A workbook without the 'Transaction Statement' sheet yields an error."""
         buffer = make_statement_workbook(rows=[], sheet_name="Wrong Sheet")
-        transactions, footer_total, warnings, errors = parse_statement_file(buffer)
+        transactions, _footer_total, _warnings, errors = parse_statement_file(buffer)
         assert transactions == []
         assert len(errors) == 1
         assert "Transaction Statement" in errors[0]
@@ -246,7 +246,7 @@ class TestParseStatementFile:
     def test_local_phone_input_normalizes_to_statement_key(self, make_statement_workbook):
         """An Account Number stored with local prefix still normalizes to 254XXXXXXXXX."""
         buffer = make_statement_workbook(rows=[_txn(**{"Account Number": "0712345678"})])
-        transactions, _, warnings, errors = parse_statement_file(buffer)
+        transactions, _, _warnings, _errors = parse_statement_file(buffer)
         assert transactions[0].account_number == "254712345678"
 
 
@@ -468,7 +468,8 @@ class TestReconcile:
 
     def test_paid_phone_with_unsuccessful_rows_noted(self, pm_input_df, statement_transactions):
         """A phone with both Successful and unsuccessful rows lands in matched_paid with a note."""
-        extra = list(statement_transactions) + [
+        extra = [
+            *statement_transactions,
             statement_transactions[0].model_copy(
                 update={
                     "status": "Reversed",

@@ -5,15 +5,19 @@ Orchestrates the full pipeline: read → validate → normalize → map → buil
 
 from __future__ import annotations
 
-from io import BytesIO
 from pathlib import Path
 
 import pandas as pd
 
 from .config import Settings, settings
 from .mapper import map_network
-from .models import IssueSeverity, OutputRow, TransformResult, ValidationIssue
-from .normalizer import format_case_remark, normalize_amount, normalize_phone, resolve_case_remark
+from .models import OutputRow, TransformResult
+from .normalizer import (
+    format_case_remark,
+    normalize_amount,
+    normalize_phone,
+    resolve_case_remark,
+)
 from .validator import validate
 from .writer import load_allowed_types, write_openfloat_excel
 
@@ -49,7 +53,7 @@ def transform(
     report = validate(df, config)
 
     # Step 3: Build output rows (skip rows with hard errors)
-    output_rows, error_row_indices = _build_output_rows(df, config)
+    output_rows, _error_row_indices = _build_output_rows(df, config)
 
     # Update report with final valid count
     report.valid_rows = len(output_rows)
@@ -143,7 +147,11 @@ def _build_output_rows(
         else:
             project_name = str(row.get("project_name", "")).strip()
             project_activity = str(row.get("Project_Activity", "")).strip()
-            remark = f"{project_name} - {project_activity}" if project_name or project_activity else ""
+            remark = (
+                f"{project_name} - {project_activity}"
+                if project_name or project_activity
+                else ""
+            )
 
         # --- Create OutputRow ---
         output_rows.append(

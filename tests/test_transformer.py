@@ -1,10 +1,7 @@
 """Tests for the transformer module — end-to-end transformation pipeline."""
 
-import pandas as pd
-import pytest
 
-from openfloat_formatter.config import Settings
-from openfloat_formatter.transformer import transform, _build_output_rows
+from openfloat_formatter.transformer import _build_output_rows, transform
 
 
 class TestTransformWithSampleData:
@@ -44,6 +41,7 @@ class TestTransformOutputFormat:
         import openpyxl
 
         result = transform(sample_csv_path, default_config)
+        assert result.output is not None
         result.output.seek(0)
         wb = openpyxl.load_workbook(result.output)
         assert "Accounts" in wb.sheetnames
@@ -96,13 +94,13 @@ class TestBuildOutputRows:
         assert rows[1].remark == "Test Project - g05|Testing"
 
     def test_remark_from_malformed_case_remark_falls_back_to_raw(self, minimal_df, default_config):
-        """A case_remark that doesn't match the expected pattern is kept verbatim (soft fallback)."""
+        """A case_remark not matching the pattern is kept verbatim (soft fallback)."""
         minimal_df["case_remark"] = ["not a valid case remark", ""]
         rows, _ = _build_output_rows(minimal_df, default_config)
         assert rows[0].remark == "not a valid case remark"
 
-    def test_remark_nan_case_remark_falls_back_to_project_activity(self, minimal_df, default_config):
-        """An empty CSV/Excel cell (read as NaN) falls back to project/activity, not the string 'nan'."""
+    def test_remark_nan_falls_back_to_project_activity(self, minimal_df, default_config):
+        """An empty cell (NaN) falls back to project/activity, not the string 'nan'."""
         minimal_df["case_remark"] = [float("nan"), float("nan")]
         rows, _ = _build_output_rows(minimal_df, default_config)
         assert rows[0].remark == "Test Project - g05|Testing"

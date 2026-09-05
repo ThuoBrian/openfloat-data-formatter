@@ -11,6 +11,7 @@ Provides a simple web interface for non-technical staff to:
 
 from __future__ import annotations
 
+from io import BytesIO
 from pathlib import Path
 
 import pandas as pd
@@ -85,10 +86,11 @@ def render_transform_page(country_prefix: str):
     # --- Read file ---
     try:
         suffix = Path(uploaded_file.name).suffix.lower()
-        if suffix == ".csv":
-            df = pd.read_csv(uploaded_file)
-        else:
-            df = pd.read_excel(uploaded_file)
+        df = (
+            pd.read_csv(uploaded_file)
+            if suffix == ".csv"
+            else pd.read_excel(uploaded_file)
+        )
     except Exception as e:
         st.error(f"Error reading file: {e}")
         return
@@ -273,7 +275,7 @@ def render_statement_report_page(country_prefix: str):
     with st.spinner("Building report..."):
         try:
             report = build_statement_report(
-                [f.getvalue() for f in statement_files],
+                [BytesIO(f.getvalue()) for f in statement_files],
                 source_names=[f.name for f in statement_files],
                 input_df=input_df,
                 config=config,

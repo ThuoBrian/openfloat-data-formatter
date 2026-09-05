@@ -1,10 +1,7 @@
 """Tests for the validator module — input validation and error collection."""
 
 import pandas as pd
-import pytest
 
-from openfloat_formatter.config import Settings
-from openfloat_formatter.models import IssueSeverity
 from openfloat_formatter.validator import validate
 
 

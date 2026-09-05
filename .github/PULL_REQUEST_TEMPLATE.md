@@ -38,6 +38,8 @@
 ## How was this tested?
 
 ```bash
+uv run ruff check .
+uv run mypy
 uv run pytest -v
 ```
 
@@ -46,7 +48,7 @@ output below, or describe manual verification — e.g. ran through the Streamlit
 UI, sample file used.) -->
 
 - [ ] Added/updated tests for this change
-- [ ] All tests pass locally
+- [ ] `ruff check`, `mypy`, and all tests pass locally
 - [ ] Ran manually against sample data in `docs/`
 
 ## Checklist

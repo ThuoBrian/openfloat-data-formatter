@@ -18,12 +18,12 @@ from __future__ import annotations
 import io
 import tempfile
 from pathlib import Path
+from typing import Annotated
 
+import pandas as pd
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-
-import pandas as pd
 
 from .config import settings
 from .models import StatementReport, ValidationReport
@@ -56,7 +56,7 @@ async def health_check():
 
 
 @app.post("/validate", response_model=ValidationReport)
-async def validate_file(file: UploadFile = File(...)):
+async def validate_file(file: Annotated[UploadFile, File()]):
     """Validate a Process Maker CSV/Excel file without transforming it.
 
     Returns a JSON validation report with row counts, errors, and warnings.
@@ -67,14 +67,14 @@ async def validate_file(file: UploadFile = File(...)):
 
 
 @app.post("/transform")
-async def transform_file(file: UploadFile = File(...)):
+async def transform_file(file: Annotated[UploadFile, File()]):
     """Transform a Process Maker CSV/Excel file into an OpenFloat-ready Excel file.
 
     Returns the transformed .xlsx file as a binary download.
     """
     # Save uploaded file to temp location
     with tempfile.NamedTemporaryFile(
-        delete=False, suffix=Path(file.filename).suffix
+        delete=False, suffix=Path(file.filename or "").suffix
     ) as tmp:
         content = await file.read()
         tmp.write(content)
@@ -94,7 +94,7 @@ async def transform_file(file: UploadFile = File(...)):
 
     # Stream the output buffer
     result.output.seek(0)
-    filename = Path(file.filename).stem + "_openfloat.xlsx"
+    filename = Path(file.filename or "upload").stem + "_openfloat.xlsx"
 
     return StreamingResponse(
         result.output,
@@ -105,8 +105,8 @@ async def transform_file(file: UploadFile = File(...)):
 
 @app.post("/statement-report", response_model=StatementReport)
 async def statement_report(
-    statement_files: list[UploadFile] = File(...),
-    input_file: UploadFile | None = File(None),
+    statement_files: Annotated[list[UploadFile], File()],
+    input_file: Annotated[UploadFile | None, File()] = None,
 ):
     """Report on successful vs unsuccessful OpenFloat disbursements.
 
@@ -123,7 +123,7 @@ async def statement_report(
     input_df = await _read_uploaded_file(input_file) if input_file else None
     report = build_statement_report(
         [io.BytesIO(await statement_file.read()) for statement_file in statement_files],
-        source_names=[statement_file.filename for statement_file in statement_files],
+        source_names=[statement_file.filename or "unnamed" for statement_file in statement_files],
         input_df=input_df,
         config=settings,
     )
@@ -135,7 +135,7 @@ async def _read_uploaded_file(file: UploadFile) -> pd.DataFrame:
 
     Supports CSV and Excel (.xlsx, .xls, .xlsm) formats.
     """
-    suffix = Path(file.filename).suffix.lower()
+    suffix = Path(file.filename or "").suffix.lower()
     content = await file.read()
 
     if suffix == ".csv":

@@ -153,7 +153,7 @@ def pm_input_df():
     - 254752345678: two Successful rows of 100  → duplicate pair, multiply paid
     - 254733345678: absent from the statement  → missing_from_statement
     """
-    rows = []
+    rows: list[dict[str, object]] = []
     for phone in ("712345678", "722345678", "742345678", "752345678", "752345678", "733345678"):
         rows.append(
             {

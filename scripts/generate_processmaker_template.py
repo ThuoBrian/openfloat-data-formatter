@@ -13,11 +13,10 @@ Usage (repo root, after `uv sync`):
     uv run python scripts/generate_processmaker_template.py
 """
 
+from copy import copy
 from pathlib import Path
 
 from openpyxl import Workbook
-from copy import copy
-
 from openpyxl.styles import Font
 from openpyxl.worksheet.datavalidation import DataValidation
 
@@ -84,17 +83,22 @@ SAMPLE_ROWS = [
 ]
 
 INSTRUCTIONS = [
-    ("unique_id", "Optional. Any identifier; written verbatim to the output 'Account Name' column."),
-    ("consent", 'Required. Must be exactly "Yes" (case-insensitive). Any other value excludes the row.'),
+    ("unique_id", "Optional. Any identifier; written verbatim to the output "
+     "'Account Name' column."),
+    ("consent", 'Required. Must be exactly "Yes" (case-insensitive). Any other '
+     'value excludes the row.'),
     (
         "airtime_phone",
-        "Required. Kenyan phone number. Digits only after cleanup; a leading 254 or 0 prefix is stripped "
+        "Required. Kenyan phone number. Digits only after cleanup; a leading "
+        "254 or 0 prefix is stripped "
         "(0 only if 9 digits would remain longer than 9); must resolve to exactly 9 digits. "
         "Example: 254712345678 or 0712345678 or 712345678 all normalize the same way.",
     ),
     (
         "network",
-        "Required, case-sensitive. Must be exactly one of: " + ", ".join(NETWORK_CHOICES) + ". Any other value is a hard error.",
+        "Required, case-sensitive. Must be exactly one of: "
+        + ", ".join(NETWORK_CHOICES)
+        + ". Any other value is a hard error.",
     ),
     ("submissiondate", "Optional. Not validated by the formatter; informational only."),
     ("today", "Optional. Not validated by the formatter; informational only."),
@@ -103,17 +107,21 @@ INSTRUCTIONS = [
         "Required. A positive number (KES). Zero, negative, or non-numeric values are rejected. "
         "Amounts above KES 10,000 are allowed but flagged as a warning.",
     ),
-    ("project_name", "Optional. Used only as part of the legacy Remark fallback when case_remark is blank."),
-    ("Project_Activity", "Optional (note capitalization). Used only as part of the legacy Remark fallback when case_remark is blank."),
+    ("project_name", "Optional. Used only as part of the legacy Remark fallback "
+     "when case_remark is blank."),
+    ("Project_Activity", "Optional (note capitalization). Used only as part of "
+     "the legacy Remark fallback when case_remark is blank."),
     ("department", "Optional. Not validated by the formatter; informational only."),
     ("survey", "Optional. Not validated by the formatter; informational only."),
     (
         "case_remark",
-        "Optional but recommended. Fixed format: 'C#<case_number> <project_code> RESP AIRTIME-KSH<amount> <activity_code>', "
+        "Optional but recommended. Fixed format: "
+        "'C#<case_number> <project_code> RESP AIRTIME-KSH<amount> <activity_code>', "
         "e.g. 'C#37166 22505AA RESP AIRTIME-KSH29400 d05'. Reformatted automatically to "
         "'Case #<case_number> | <project_code> | RESP | AIRTIME KSH <amount> | <activity_code>'. "
         "If left blank, the Remark falls back to '{project_name} - {Project_Activity}'. "
-        "The embedded amount is cross-checked against the row's real amount column (mismatch is a soft warning only).",
+        "The embedded amount is cross-checked against the row's real amount column "
+        "(mismatch is a soft warning only).",
     ),
 ]
 

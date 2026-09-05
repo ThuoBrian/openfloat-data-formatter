@@ -29,10 +29,11 @@ from __future__ import annotations
 
 import math
 from collections import Counter, defaultdict
+from collections.abc import Sequence
 from datetime import datetime, timedelta
 from io import BytesIO
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any
 
 import pandas as pd
 from openpyxl import load_workbook
@@ -138,9 +139,7 @@ def _is_blank(value: Any) -> bool:
         return True
     if isinstance(value, float) and math.isnan(value):
         return True
-    if isinstance(value, str) and not value.strip():
-        return True
-    return False
+    return isinstance(value, str) and not value.strip()
 
 
 def _is_footer_row(row_map: dict[str, Any]) -> bool:
@@ -157,7 +156,9 @@ def _parse_amount(raw: Any, file_name: str, row_number: int, warnings: list[str]
     try:
         return float(raw)
     except (ValueError, TypeError):
-        warnings.append(f"{file_name} row {row_number}: Amount {raw!r} is not numeric — recorded as empty")
+        warnings.append(
+            f"{file_name} row {row_number}: Amount {raw!r} is not numeric — recorded as empty"
+        )
         return None
 
 
@@ -254,7 +255,10 @@ def parse_statement_file(
                 [],
                 None,
                 warnings,
-                [f"'{file_name}' has no '{STATEMENT_SHEET_NAME}' sheet (found: {', '.join(workbook.sheetnames)})"],
+                [
+                    f"'{file_name}' has no '{STATEMENT_SHEET_NAME}' sheet "
+                    f"(found: {', '.join(workbook.sheetnames)})"
+                ],
             )
         worksheet = workbook[STATEMENT_SHEET_NAME]
 
@@ -572,7 +576,7 @@ def build_statement_report(
     transactions: list[StatementTransaction] = []
     file_summaries: list[StatementFileSummary] = []
 
-    for source, name in zip(sources, source_names):
+    for source, name in zip(sources, source_names, strict=True):
         try:
             file_transactions, footer_total, file_warnings, file_errors = parse_statement_file(
                 source, source_name=name, country_prefix=config.default_country_prefix
