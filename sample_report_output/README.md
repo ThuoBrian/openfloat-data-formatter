@@ -3,7 +3,7 @@
 Holds real **OpenFloat "Transaction Statement"** exports — the reports the
 OpenFloat SaaS produces *after* staff upload a disbursement batch. They are
 used to manually exercise the app's **Statement Report** mode (see
-`src/frontend/app.py` and `src/backend/statement.py`).
+`src/openfloat_formatter/ui/app.py` and `src/openfloat_formatter/statement.py`).
 
 ## ⚠️ These files are NOT tracked by git
 
@@ -14,8 +14,9 @@ directory (and this warning) survives a fresh clone.
 
 ## Statement format reference
 
-Parsing is implemented in `src/backend/statement.py::parse_statement_file`
-and tested with synthetic workbooks (`src/tests/conftest.py::
+Parsing is implemented in
+`src/openfloat_formatter/statement.py::parse_statement_file`
+and tested with synthetic workbooks (`tests/conftest.py::
 make_statement_workbook`) — the tests never read these real files.
 
 Format facts:

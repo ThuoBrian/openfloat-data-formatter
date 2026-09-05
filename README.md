@@ -19,6 +19,9 @@ own laptop; your data is never sent anywhere remote.
 The first run needs an internet connection (~150–250 MB); after that it
 works fully offline.
 
+On a Mac? The one-click installer is Windows-only — ask whoever gave you
+this tool to set it up, or use the [developer setup](#for-developers) below.
+
 Full walkthrough — starting the app later, updates, using both modes, FAQ:
 **[GUIDE.md](GUIDE.md)**
 
@@ -37,6 +40,11 @@ The app has two modes, picked in the sidebar:
 
 Nothing is ever silently dropped or hidden: every filtered row and flagged
 discrepancy is reported.
+
+Filling in data by hand? Use **`docs/processmaker-input-template.xlsx`** (in
+your install folder) — it has the correct headers, valid example rows,
+dropdowns for consent and network, and an Instructions sheet explaining the
+format rules.
 
 ---
 
@@ -58,6 +66,19 @@ uv run pytest -v   # run the test suite
 
 Pipeline: `Process Maker CSV → validate → normalize → map → OpenFloat-ready .xlsx`.
 Full domain rules and architecture: [CLAUDE.md](CLAUDE.md).
+Development pitfalls and non-obvious behaviors: [docs/GOTCHA.md](docs/GOTCHA.md).
+
+### HTTP API
+
+The same functionality is exposed by a FastAPI server (`./start.sh api`),
+with interactive docs at `http://localhost:8000/docs`:
+
+| Endpoint | Method | Purpose |
+|---|---|---|
+| `/transform` | POST | Upload a Process Maker export, get the OpenFloat-ready file + validation report |
+| `/validate` | POST | Validation report only — no output file |
+| `/statement-report` | POST | Analyze OpenFloat Transaction Statement file(s), optionally reconciled against the original input |
+| `/health` | GET | Liveness check |
 
 ### Project structure
 
@@ -66,7 +87,8 @@ src/openfloat_formatter/   the Python package: validation, normalization,
                            mapping, Excel output, statement reporting,
                            FastAPI app, and the Streamlit UI (ui/app.py)
 tests/                      pytest suite
-docs/                       reference data (OpenFloat template, notes)
+docs/                       reference data (OpenFloat template, fillable input
+                           template, GOTCHA.md dev notes)
 scripts/                    maintenance scripts (e.g. template generator)
 install/                    one-liner installer for non-technical users
 ```
@@ -74,3 +96,10 @@ install/                    one-liner installer for non-technical users
 ### Stack
 
 Python 3.11+ · Pandas · OpenPyXL · FastAPI · Pydantic v2 · Streamlit
+
+## License & use
+
+© 2026. All rights reserved. This tool is for internal use only — it is
+**not** published under an open-source license, and permission to use, copy,
+or redistribute it outside the organization must be obtained from the
+repository owner.

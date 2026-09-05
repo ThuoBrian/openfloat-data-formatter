@@ -19,7 +19,7 @@ The two `.xlsx` files above are tracked despite `.gitignore` excluding `*.xlsx` 
 
 ## Reference Data in `sample_report_output/`
 
-Real OpenFloat "Transaction Statement" exports (post-disbursement reports) used to manually exercise the app's Statement Report mode. They contain **personal data** (phone numbers, staff names) and are **not tracked** — do not `git add -f` them; only `sample_report_output/README.md` is tracked. Tests must never reference them — the statement test suite builds synthetic workbooks instead (`src/tests/conftest.py::make_statement_workbook`).
+Real OpenFloat "Transaction Statement" exports (post-disbursement reports) used to manually exercise the app's Statement Report mode. They contain **personal data** (phone numbers, staff names) and are **not tracked** — do not `git add -f` them; only `sample_report_output/README.md` is tracked. Tests must never reference them — the statement test suite builds synthetic workbooks instead (`tests/conftest.py::make_statement_workbook`).
 
 ## Key Domain Rules
 
@@ -54,7 +54,7 @@ src/openfloat_formatter/   # the installed Python package (hatchling, src layout
   main.py          # FastAPI app: POST /transform, /validate, /statement-report, GET /health
   ui/app.py        # Streamlit UI with two modes: Transform (upload → preview → validate →
                    #   download) and Statement Report (analyze OpenFloat statements)
-tests/             # pytest suite (132+ tests; statement tests use synthetic workbooks only)
+tests/             # pytest suite (statement tests use synthetic workbooks only)
 ```
 
 Tech stack: Python 3.11+, Pandas, OpenPyXL, FastAPI, Pydantic v2, Streamlit.
@@ -65,6 +65,7 @@ The package is installed editable via `uv sync` (pyproject + uv.lock are the sin
 
 - `scripts/` — one-off/maintenance scripts, e.g. `generate_processmaker_template.py` (regenerates `docs/processmaker-input-template.xlsx`)
 - `install/`, plus `run.bat`/`start.bat`/`start.sh` at the repo root — installer/launcher scripts for non-technical users (all uv-based)
+- `docs/` — reference data files (table above) plus `GOTCHA.md` — development pitfalls and non-obvious behaviors; read it before debugging surprising pandas/openpyxl/template behavior
 - `.github/` — GitHub metadata: `PULL_REQUEST_TEMPLATE.md`, CI workflow
 
 ## Build & Run Commands
@@ -73,7 +74,7 @@ All commands run via uv (`uv sync` installs `.venv` with the package editable + 
 
 ```bash
 uv sync --python 3.12                        # Set up / refresh the environment
-uv run pytest -v                             # Run all tests (132 tests)
+uv run pytest -v                             # Run the full test suite
 uv run pytest tests/test_normalizer.py -v    # Run single test module
 uv run pytest -k "test_phone" -v              # Run tests by name pattern
 uv run uvicorn openfloat_formatter.main:app --reload   # Run FastAPI server (port 8000)

@@ -53,6 +53,12 @@ anything first.
 
 The app has two modes — switch between them in the sidebar on the left.
 
+> **Tip — filling in data by hand?** In your install folder there's a file
+> `docs/processmaker-input-template.xlsx`. It has the correct headers, valid
+> example rows, dropdowns for consent and network, and an **Instructions**
+> sheet explaining the format rules. Fill it in and export/upload it as your
+> Process Maker file.
+
 ### Transform mode (prepare an upload)
 
 1. Upload your Process Maker CSV or Excel export.
