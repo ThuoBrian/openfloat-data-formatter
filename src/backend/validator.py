@@ -19,6 +19,51 @@ from .models import FilteredCounts, IssueSeverity, ValidationIssue, ValidationRe
 from .normalizer import normalize_amount, normalize_phone, resolve_case_remark
 
 
+def check_hard_errors(row: pd.Series, config: Settings) -> list[tuple[str, str]]:
+    """Return (field, message) for each hard-error check the row fails.
+
+    Shared by `validate()` (to build the validation report) and
+    `transformer._build_output_rows()` (to decide which rows to skip), so the
+    two can never drift apart on which rows count as invalid.
+    """
+    failures: list[tuple[str, str]] = []
+
+    consent = str(row.get("consent", "")).strip()
+    if consent.lower() != config.required_consent_value.lower():
+        failures.append(
+            ("consent", f"Consent is '{consent}', expected '{config.required_consent_value}'")
+        )
+
+    phone_raw = row.get("airtime_phone", "")
+    _, phone_error = normalize_phone(phone_raw, config.default_country_prefix)
+    if phone_error is not None:
+        failures.append(("airtime_phone", phone_error))
+
+    amount_raw = row.get("amount", 0)
+    _, amount_error = normalize_amount(amount_raw)
+    if amount_error is not None:
+        failures.append(("amount", amount_error))
+
+    network = str(row.get("network", "")).strip()
+    _, network_error = map_network(network, config.network_map)
+    if network_error is not None:
+        failures.append(("network", network_error))
+
+    return failures
+
+
+# Maps a check_hard_errors() field name to its FilteredCounts attribute.
+_FILTERED_COUNT_FIELD = {
+    "consent": "consent_filtered",
+    "airtime_phone": "invalid_phone",
+    "amount": "invalid_amount",
+    "network": "unmapped_network",
+}
+# Fields whose check_hard_errors() message gets a "Row N: " prefix (matches
+# the original per-check message formatting).
+_ROW_PREFIXED_FIELDS = {"airtime_phone", "amount", "network"}
+
+
 def validate(
     df: pd.DataFrame,
     config: Settings | None = None,
@@ -51,47 +96,26 @@ def validate(
         row_num = idx + 2  # 1-based, accounting for header row
         row_errors: list[ValidationIssue] = []
 
-        # --- Consent filter (hard error) ---
-        consent = str(row.get("consent", "")).strip()
-        if consent.lower() != config.required_consent_value.lower():
+        # --- Shared hard-error checks (consent, phone, amount, network) ---
+        # Uses the same predicate transformer._build_output_rows() uses to
+        # decide row exclusion, so the two can't drift apart.
+        for field, message in check_hard_errors(row, config):
+            full_message = f"Row {row_num}: {message}" if field in _ROW_PREFIXED_FIELDS else message
             row_errors.append(
                 ValidationIssue(
                     row_number=row_num,
                     severity=IssueSeverity.ERROR,
-                    field="consent",
-                    message=f"Consent is '{consent}', expected '{config.required_consent_value}'",
+                    field=field,
+                    message=full_message,
                 )
             )
-            filtered_counts.consent_filtered += 1
+            count_field = _FILTERED_COUNT_FIELD[field]
+            setattr(filtered_counts, count_field, getattr(filtered_counts, count_field) + 1)
 
-        # --- Phone validation (hard error) ---
-        phone_raw = row.get("airtime_phone", "")
-        _, phone_error = normalize_phone(phone_raw, config.default_country_prefix)
-        if phone_error is not None:
-            row_errors.append(
-                ValidationIssue(
-                    row_number=row_num,
-                    severity=IssueSeverity.ERROR,
-                    field="airtime_phone",
-                    message=f"Row {row_num}: {phone_error}",
-                )
-            )
-            filtered_counts.invalid_phone += 1
-
-        # --- Amount validation (hard error for non-numeric/<=0, warning for >threshold) ---
+        # --- Amount threshold (soft warning; only meaningful if amount itself is valid) ---
         amount_raw = row.get("amount", 0)
         amount_value, amount_error = normalize_amount(amount_raw)
-        if amount_error is not None:
-            row_errors.append(
-                ValidationIssue(
-                    row_number=row_num,
-                    severity=IssueSeverity.ERROR,
-                    field="amount",
-                    message=f"Row {row_num}: {amount_error}",
-                )
-            )
-            filtered_counts.invalid_amount += 1
-        elif amount_value > config.max_amount_threshold:
+        if amount_error is None and amount_value > config.max_amount_threshold:
             warnings.append(
                 ValidationIssue(
                     row_number=row_num,
@@ -100,20 +124,6 @@ def validate(
                     message=f"Row {row_num}: Amount {amount_value} exceeds threshold {config.max_amount_threshold}",
                 )
             )
-
-        # --- Network mapping (hard error for unmapped) ---
-        network = str(row.get("network", "")).strip()
-        _, network_error = map_network(network, config.network_map)
-        if network_error is not None:
-            row_errors.append(
-                ValidationIssue(
-                    row_number=row_num,
-                    severity=IssueSeverity.ERROR,
-                    field="network",
-                    message=f"Row {row_num}: {network_error}",
-                )
-            )
-            filtered_counts.unmapped_network += 1
 
         # --- case_remark format check (soft warning, falls back to raw text) ---
         case_remark_raw, case_remark_parts, case_remark_error = resolve_case_remark(

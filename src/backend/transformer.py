@@ -14,7 +14,7 @@ from .config import Settings, settings
 from .mapper import map_network
 from .models import IssueSeverity, OutputRow, TransformResult, ValidationIssue
 from .normalizer import format_case_remark, normalize_amount, normalize_phone, resolve_case_remark
-from .validator import validate
+from .validator import check_hard_errors, validate
 from .writer import load_allowed_types, write_openfloat_excel
 
 
@@ -87,11 +87,9 @@ def _build_output_rows(
 ) -> tuple[list[OutputRow], set[int]]:
     """Transform valid rows into OutputRow objects.
 
-    Skips rows where:
-    - consent != "Yes" (case-insensitive)
-    - Phone normalization fails
-    - Network mapping fails
-    - Amount validation fails
+    Skips rows that fail any of `validator.check_hard_errors()`'s checks
+    (consent, phone, network, amount) — the same predicate `validate()` uses
+    to build the validation report, so the two can't drift apart.
 
     Returns:
         A tuple of (output_rows, error_row_indices).
@@ -100,34 +98,14 @@ def _build_output_rows(
     error_indices: set[int] = set()
 
     for idx, row in df.iterrows():
-        # --- Consent filter ---
-        consent = str(row.get("consent", "")).strip()
-        if consent.lower() != config.required_consent_value.lower():
+        if check_hard_errors(row, config):
             error_indices.add(idx)
             continue
 
-        # --- Phone normalization ---
-        phone_raw = row.get("airtime_phone", "")
-        normalized_phone, phone_error = normalize_phone(
-            phone_raw, config.default_country_prefix
-        )
-        if phone_error is not None:
-            error_indices.add(idx)
-            continue
-
-        # --- Network mapping ---
+        normalized_phone, _ = normalize_phone(row.get("airtime_phone", ""), config.default_country_prefix)
         network = str(row.get("network", "")).strip()
-        account_type, network_error = map_network(network, config.network_map)
-        if network_error is not None:
-            error_indices.add(idx)
-            continue
-
-        # --- Amount validation ---
-        amount_raw = row.get("amount", 0)
-        amount_value, amount_error = normalize_amount(amount_raw)
-        if amount_error is not None:
-            error_indices.add(idx)
-            continue
+        account_type, _ = map_network(network, config.network_map)
+        amount_value, _ = normalize_amount(row.get("amount", 0))
 
         # --- Build Remark from case_remark (soft-falls back on parse failure) ---
         case_remark_raw, case_remark_parts, _ = resolve_case_remark(row.get("case_remark", ""))
