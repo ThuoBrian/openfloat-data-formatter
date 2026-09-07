@@ -137,8 +137,12 @@ def parse_case_remark(raw: str) -> tuple[CaseRemarkParts | None, str | None]:
         On failure: (None, error_description)
 
     Examples:
-        >>> parse_case_remark("C#37166 22505AA RESP AIRTIME-KSH29400 d05")
-        (CaseRemarkParts(case_number='37166', project_code='22505AA', amount='29400', activity_code='d05'), None)
+        >>> parts, error = parse_case_remark("C#37166 22505AA RESP AIRTIME-KSH29400 d05")
+        >>> parts == CaseRemarkParts(
+        ...     case_number='37166', project_code='22505AA', amount='29400', activity_code='d05')
+        True
+        >>> error is None
+        True
         >>> parse_case_remark("garbage")[0] is None
         True
     """

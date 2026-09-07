@@ -1,11 +1,8 @@
 """Tests for the validator module — input validation and error collection."""
 
 import pandas as pd
-import pytest
 
-from backend.config import Settings
-from backend.models import IssueSeverity
-from backend.validator import validate
+from openfloat_formatter.validator import validate
 
 
 class TestValidatorWithSampleData:

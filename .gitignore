@@ -6,10 +6,15 @@
 *.csv
 
 # Excel lock/temp files
-~$*.xlsx
-~$*.xls
-~$*.xlsm
+~$*
 *.tmp
+
+# Tool caches (also self-ignored by the tools; listed for explicitness)
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
 
 # Python
 __pycache__/
@@ -24,7 +29,14 @@ build/
 # Environment
 .env
 
+# Claude Code local settings (machine-specific permission grants)
+.claude/settings.local.json
+
 # IDE
 .vscode/
 .idea/
 .DS_Store
+
+# Windows
+Thumbs.db
+desktop.ini

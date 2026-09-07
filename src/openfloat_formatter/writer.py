@@ -12,9 +12,9 @@ from __future__ import annotations
 
 from io import BytesIO
 from pathlib import Path
+from typing import overload
 
 import openpyxl
-import pandas as pd
 
 from .config import OPENFLOAT_ACCOUNTS_COLUMNS
 from .models import OutputRow
@@ -23,7 +23,7 @@ from .models import OutputRow
 _FORMULA_TRIGGER_CHARS = ("=", "+", "-", "@")
 
 
-def _sanitize_cell_value(value: str) -> str:
+def _sanitize_cell_value(value: object) -> object:
     """Neutralize spreadsheet formula injection in a string cell value.
 
     openpyxl auto-promotes any string starting with '=' (and Excel itself
@@ -77,6 +77,16 @@ def load_allowed_types(template_path: str | Path) -> list[str]:
     wb.close()
     return types
 
+
+@overload
+def write_openfloat_excel(
+    rows: list[OutputRow], allowed_types: list[str], output_path: None = None
+) -> BytesIO: ...
+
+@overload
+def write_openfloat_excel(
+    rows: list[OutputRow], allowed_types: list[str], output_path: str | Path
+) -> Path: ...
 
 def write_openfloat_excel(
     rows: list[OutputRow],

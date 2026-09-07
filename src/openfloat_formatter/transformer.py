@@ -5,15 +5,19 @@ Orchestrates the full pipeline: read → validate → normalize → map → buil
 
 from __future__ import annotations
 
-from io import BytesIO
 from pathlib import Path
 
 import pandas as pd
 
 from .config import Settings, settings
 from .mapper import map_network
-from .models import IssueSeverity, OutputRow, TransformResult, ValidationIssue
-from .normalizer import format_case_remark, normalize_amount, normalize_phone, resolve_case_remark
+from .models import OutputRow, TransformResult
+from .normalizer import (
+    format_case_remark,
+    normalize_amount,
+    normalize_phone,
+    resolve_case_remark,
+)
 from .validator import check_hard_errors, validate
 from .writer import load_allowed_types, write_openfloat_excel
 
@@ -49,7 +53,7 @@ def transform(
     report = validate(df, config)
 
     # Step 3: Build output rows (skip rows with hard errors)
-    output_rows, error_row_indices = _build_output_rows(df, config)
+    output_rows, _error_row_indices = _build_output_rows(df, config)
 
     # Update report with final valid count
     report.valid_rows = len(output_rows)
@@ -57,8 +61,11 @@ def transform(
     # Step 4: Load Allowed Types from reference template
     allowed_types = load_allowed_types(config.openfloat_template_path)
 
-    # Step 5: Write output Excel
-    output_buffer = write_openfloat_excel(output_rows, allowed_types)
+    # Step 5: Write output Excel — when every row was filtered out there is
+    # nothing to upload, so signal that with output=None rather than shipping
+    # an empty Accounts sheet (the API's 422 and the UI's "no output" branch
+    # both rely on this).
+    output_buffer = write_openfloat_excel(output_rows, allowed_types) if output_rows else None
 
     return TransformResult(
         output=output_buffer,
@@ -102,7 +109,9 @@ def _build_output_rows(
             error_indices.add(idx)
             continue
 
-        normalized_phone, _ = normalize_phone(row.get("airtime_phone", ""), config.default_country_prefix)
+        normalized_phone, _ = normalize_phone(
+            row.get("airtime_phone", ""), config.default_country_prefix
+        )
         network = str(row.get("network", "")).strip()
         account_type, _ = map_network(network, config.network_map)
         amount_value, _ = normalize_amount(row.get("amount", 0))
@@ -118,7 +127,11 @@ def _build_output_rows(
         else:
             project_name = str(row.get("project_name", "")).strip()
             project_activity = str(row.get("Project_Activity", "")).strip()
-            remark = f"{project_name} - {project_activity}" if project_name or project_activity else ""
+            remark = (
+                f"{project_name} - {project_activity}"
+                if project_name or project_activity
+                else ""
+            )
 
         # --- Create OutputRow ---
         output_rows.append(
