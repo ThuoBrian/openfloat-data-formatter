@@ -8,6 +8,10 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- Relicensed from proprietary/all-rights-reserved to
+  [Apache License 2.0](LICENSE). `pyproject.toml`'s `license` field and
+  classifiers updated to match; README's License section now points at
+  `LICENSE`. Added `CONTRIBUTING.md`.
 - README: added a CI status badge, a "Configuration" section documenting the
   `.env` settings, and a "Limitations" section; GUIDE.md gained a matching
   plain-language "What This App Doesn't Do" section.

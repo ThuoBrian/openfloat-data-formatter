@@ -130,9 +130,11 @@ install/                    one-liner installer for non-technical users
 
 Python 3.11+ · Pandas · OpenPyXL · FastAPI · Pydantic v2 · Streamlit
 
-## License & use
+## Contributing
 
-© 2026. All rights reserved. This tool is for internal use only — it is
-**not** published under an open-source license, and permission to use, copy,
-or redistribute it outside the organization must be obtained from the
-repository owner.
+Bug reports and pull requests are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md)
+for setup, testing, and the PR process.
+
+## License
+
+Licensed under the [Apache License, Version 2.0](LICENSE).
