@@ -8,6 +8,9 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- README: added a CI status badge, a "Configuration" section documenting the
+  `.env` settings, and a "Limitations" section; GUIDE.md gained a matching
+  plain-language "What This App Doesn't Do" section.
 - Adopted ruff (lint) and mypy (type checking) as dev tooling; both run in CI
   alongside pytest. Config lives in `pyproject.toml`.
 - Modernized a few patterns surfaced by the linters: `IssueSeverity` is a
