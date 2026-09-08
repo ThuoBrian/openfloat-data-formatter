@@ -1,0 +1,4 @@
+# Every path defaults to this owner unless a more specific rule below matches.
+# See: https://docs.github.com/articles/about-code-owners
+
+* @ThuoBrian
