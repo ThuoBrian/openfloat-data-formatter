@@ -80,6 +80,17 @@ The app has two modes — switch between them in the sidebar on the left.
    shows, per phone number, who was paid, who was on the statement but
    unpaid, and who never appeared on the statement at all.
 
+## What This App Doesn't Do
+
+- It doesn't upload anything to OpenFloat for you — it only prepares the file
+  you upload yourself, and reads the statement OpenFloat gives back.
+- It only understands Process Maker's export format (see the template above)
+  and Kenyan phone numbers — other formats are flagged as errors, not guessed
+  at.
+- It doesn't merge or fix duplicate phone numbers automatically — it flags
+  them so you can decide.
+- The one-click installer above is Windows-only.
+
 ## FAQ
 
 **Does my data leave my laptop?**

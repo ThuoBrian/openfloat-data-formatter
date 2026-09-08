@@ -1,5 +1,7 @@
 # OpenFloat Data Formatter
 
+[![Tests](https://github.com/ThuoBrian/openfloat-data-formatter/actions/workflows/tests.yml/badge.svg)](https://github.com/ThuoBrian/openfloat-data-formatter/actions/workflows/tests.yml)
+
 Turns Process Maker airtime exports into OpenFloat-ready upload files —
 and reports which disbursements actually succeeded. Runs entirely on your
 own laptop; your data is never sent anywhere remote.
@@ -46,6 +48,22 @@ your install folder) — it has the correct headers, valid example rows,
 dropdowns for consent and network, and an Instructions sheet explaining the
 format rules.
 
+### Limitations
+
+- Expects Process Maker's specific column layout (see
+  `processmaker-input-template.xlsx`) — a differently-shaped export will fail
+  validation, not get silently reinterpreted.
+- Phone normalization assumes Kenyan numbers (9 local digits, `254` country
+  code); other country formats are rejected as invalid.
+- Network → Account Type mapping is a fixed, case-sensitive lookup (see
+  [CLAUDE.md](CLAUDE.md#key-domain-rules)); an unrecognized or
+  differently-cased network name is a hard error, not a best-effort guess.
+- Duplicate phone numbers are flagged, not auto-deduplicated — you decide
+  which row is correct.
+- It prepares the upload file and reads statements back; it does not talk to
+  the OpenFloat API or submit anything on your behalf.
+- The one-click installer is Windows-only (see [GUIDE.md](GUIDE.md)).
+
 ---
 
 ## For developers
@@ -80,6 +98,20 @@ with interactive docs at `http://localhost:8000/docs`:
 | `/validate` | POST | Validation report only — no output file |
 | `/statement-report` | POST | Analyze OpenFloat Transaction Statement file(s), optionally reconciled against the original input |
 | `/health` | GET | Liveness check |
+
+### Configuration
+
+All settings have defaults and are optional to override. Copy `.env.example`
+to `.env` and edit, or set the environment variable directly:
+
+| Variable | Default | Description |
+|---|---|---|
+| `MAX_AMOUNT_THRESHOLD` | `10000` | Airtime amount (KES) above which a row gets a soft warning |
+| `DEFAULT_COUNTRY_PREFIX` | `254` | Country code prepended to normalized phone numbers |
+| `REQUIRED_CONSENT_VALUE` | `Yes` | Value required in the `consent` column to include a row (case-insensitive) |
+| `OPENFLOAT_TEMPLATE_PATH` | `docs/openfloat-transactions-template.xlsx` | Path to the OpenFloat template (relative to project root) |
+
+See `src/openfloat_formatter/config.py` for the full `Settings` model.
 
 ### Project structure
 
