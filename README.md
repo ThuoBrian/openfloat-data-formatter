@@ -4,7 +4,7 @@
 
 Turns Process Maker airtime exports into OpenFloat-ready upload files —
 and reports which disbursements actually succeeded. Runs entirely on your
-own laptop; your data is never sent anywhere remote.
+own laptop; your data never leaves it.
 
 ## Install (no technical skills needed)
 
@@ -52,13 +52,13 @@ format rules.
 
 - Expects Process Maker's specific column layout (see
   `processmaker-input-template.xlsx`) — a differently-shaped export will fail
-  validation, not get silently reinterpreted.
+  validation instead of being silently guessed at.
 - Phone normalization assumes Kenyan numbers (9 local digits, `254` country
   code); other country formats are rejected as invalid.
 - Network → Account Type mapping is a fixed, case-sensitive lookup (see
   [CLAUDE.md](CLAUDE.md#key-domain-rules)); an unrecognized or
   differently-cased network name is a hard error, not a best-effort guess.
-- Duplicate phone numbers are flagged, not auto-deduplicated — you decide
+- Duplicate phone numbers are flagged, not merged automatically — you decide
   which row is correct.
 - It prepares the upload file and reads statements back; it does not talk to
   the OpenFloat API or submit anything on your behalf.
@@ -85,7 +85,7 @@ uv run ruff check . && uv run mypy   # lint + type-check (CI enforces these too)
 
 Pipeline: `Process Maker CSV → validate → normalize → map → OpenFloat-ready .xlsx`.
 Full domain rules and architecture: [CLAUDE.md](CLAUDE.md).
-Development pitfalls and non-obvious behaviors: [docs/GOTCHA.md](docs/GOTCHA.md).
+Things that tripped us up during development: [docs/GOTCHA.md](docs/GOTCHA.md).
 
 ### HTTP API
 
@@ -97,7 +97,7 @@ with interactive docs at `http://localhost:8000/docs`:
 | `/transform` | POST | Upload a Process Maker export, get the OpenFloat-ready file + validation report |
 | `/validate` | POST | Validation report only — no output file |
 | `/statement-report` | POST | Analyze OpenFloat Transaction Statement file(s), optionally reconciled against the original input |
-| `/health` | GET | Liveness check |
+| `/health` | GET | Confirms the server is running |
 
 ### Configuration
 
@@ -107,9 +107,9 @@ to `.env` and edit, or set the environment variable directly:
 | Variable | Default | Description |
 |---|---|---|
 | `MAX_AMOUNT_THRESHOLD` | `10000` | Airtime amount (KES) above which a row gets a soft warning |
-| `DEFAULT_COUNTRY_PREFIX` | `254` | Country code prepended to normalized phone numbers |
+| `DEFAULT_COUNTRY_PREFIX` | `254` | Country code added to the front of normalized phone numbers |
 | `REQUIRED_CONSENT_VALUE` | `Yes` | Value required in the `consent` column to include a row (case-insensitive) |
-| `OPENFLOAT_TEMPLATE_PATH` | `docs/openfloat-transactions-template.xlsx` | Path to the OpenFloat template (relative to project root) |
+| `OPENFLOAT_TEMPLATE_PATH` | `docs/openfloat-transactions-template.xlsx` | Path to the OpenFloat template, relative to the project's top-level folder |
 
 See `src/openfloat_formatter/config.py` for the full `Settings` model.
 
