@@ -62,7 +62,7 @@ format rules.
 - Phone normalization assumes Kenyan numbers (9 local digits, `254` country
   code); other country formats are rejected as invalid.
 - Network → Account Type mapping is a fixed, case-sensitive lookup (see
-  [CLAUDE.md](CLAUDE.md#key-domain-rules)); an unrecognized or
+  [AGENTS.md](AGENTS.md#key-domain-rules)); an unrecognized or
   differently-cased network name is a hard error, not a best-effort guess.
 - Duplicate phone numbers are flagged, not merged automatically — you decide
   which row is correct.
@@ -90,7 +90,7 @@ uv run ruff check . && uv run mypy   # lint + type-check (CI enforces these too)
 ```
 
 Pipeline: `Process Maker CSV → validate → normalize → map → OpenFloat-ready .xlsx`.
-Full domain rules and architecture: [CLAUDE.md](CLAUDE.md).
+Full domain rules and architecture: [AGENTS.md](AGENTS.md).
 Things that tripped us up during development: [docs/GOTCHA.md](docs/GOTCHA.md).
 
 ### HTTP API
@@ -142,6 +142,10 @@ install/                    one-liner installer for non-technical users
 ### Stack
 
 Python 3.11+ · Pandas · OpenPyXL · FastAPI · Pydantic v2 · Streamlit
+
+## Changelog
+
+Release history is in [CHANGELOG.md](CHANGELOG.md).
 
 ## Contributing
 

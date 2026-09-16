@@ -4,7 +4,7 @@ Produces `docs/processmaker-input-template.xlsx`: a ready-to-fill export
 template for staff, with the exact columns the formatter expects, a couple
 of valid example rows, in-cell dropdown validation for the `network` column,
 and an `Instructions` sheet documenting the
-per-column format rules (see CLAUDE.md "Key Domain Rules").
+per-column format rules (see AGENTS.md "Key Domain Rules").
 
 Column order is imported from `openfloat_formatter.config` so this template can
 never drift from the schema the pipeline actually validates against.
@@ -34,7 +34,7 @@ TEMPLATE_COLUMNS = [*PROCESSMAKER_COLUMNS, CASE_REMARK_COLUMN, PROJECT_CODE_COLU
 
 NETWORK_CHOICES = list(DEFAULT_NETWORK_MAP.keys())
 
-# Sample rows demonstrating valid data, mirroring src/tests/conftest.py::minimal_df
+# Sample rows demonstrating valid data, mirroring tests/conftest.py::minimal_df
 SAMPLE_ROWS = [
     {
         "unique_id": "TEST001",

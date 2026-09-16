@@ -1,8 +1,8 @@
 # sample_report_output/
 
-Holds real **OpenFloat "Transaction Statement"** exports — the reports the
-OpenFloat SaaS produces *after* staff upload a disbursement batch. They are
-used to manually exercise the app's **Statement Report** mode (see
+Where you put real **OpenFloat "Transaction Statement"** exports — the reports
+the OpenFloat SaaS produces *after* staff upload a disbursement batch. Drop them
+here to manually exercise the app's **Statement Report** mode (see
 `src/openfloat_formatter/ui/app.py` and `src/openfloat_formatter/statement.py`).
 
 ## ⚠️ These files are NOT tracked by git
