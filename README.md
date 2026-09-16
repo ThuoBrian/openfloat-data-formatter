@@ -108,6 +108,7 @@ to `.env` and edit, or set the environment variable directly:
 |---|---|---|
 | `MAX_AMOUNT_THRESHOLD` | `10000` | Airtime amount (KES) above which a row gets a soft warning |
 | `DEFAULT_COUNTRY_PREFIX` | `254` | Country code added to the front of normalized phone numbers |
+| `ACCOUNT_NAME_COLUMN` | *(detected)* | Input column used for the output `Account Name`. Left unset, the app detects it from the headers; the Transform page also lets you pick it per upload |
 | `OPENFLOAT_TEMPLATE_PATH` | `docs/openfloat-transactions-template.xlsx` | Path to the OpenFloat template, relative to the project's top-level folder |
 
 See `src/openfloat_formatter/config.py` for the full `Settings` model.

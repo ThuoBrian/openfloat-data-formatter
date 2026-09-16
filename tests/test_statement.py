@@ -335,6 +335,23 @@ class TestCaseRollup:
         rollups, _ = rollup_by_case(transactions)
         assert rollups[0].difference == 300.0 - 27900.0
 
+    def test_short_remark_rolls_up_without_an_amount(self, make_statement_workbook):
+        """A short 'C# 38305' remark still groups and totals; there is just nothing
+        to compare the disbursed figure against."""
+        buffer = make_statement_workbook(
+            rows=[_txn(remark="C# 38305"), _txn(phone=254798765432, remark="C#38305")]
+        )
+        transactions, _, _, _ = parse_statement_file(buffer)
+        rollups, unparsed = rollup_by_case(transactions)
+        assert unparsed == 0
+        assert len(rollups) == 1
+        assert rollups[0].case_number == "38305"
+        assert rollups[0].total_rows == 2
+        assert rollups[0].disbursed_total == 200.0
+        assert rollups[0].remark_amount is None
+        assert rollups[0].difference is None
+        assert rollups[0].project_code == ""
+
     def test_separate_cases_sorted(self, make_statement_workbook):
         """Distinct cases produce distinct rollups, sorted by case number."""
         buffer = make_statement_workbook(

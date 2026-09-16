@@ -6,7 +6,33 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- The identifier column feeding the output `Account Name` is now **detected
+  from the headers** instead of being read from a fixed column name, so exports
+  calling it `Staff ID`, `Staff`, `Respondent ID`, `respo` or `Beneficiary Ref`
+  work with no configuration. The Transform page shows which column it picked,
+  with sample values, and lets you override it per upload; `/transform` and
+  `/validate` accept an `account_name_column` form field, and
+  `ACCOUNT_NAME_COLUMN` sets it globally.
+
 ### Changed
+
+- `case_remark` now also accepts the short `C#<case_number>` form (e.g.
+  `C# 38305`), with an optional space after `C#` in both forms. It previously
+  failed to parse, which meant a soft warning on every row and a Remark that
+  the statement report could not roll up per case. A short remark carries no
+  project code, amount or activity code, so those cases report no
+  `remark_amount`/`difference` — the rows still group and total. A partially
+  typed full form is still a parse error.
+- **Behaviour change:** files whose identifier column was previously
+  unrecognized (anything outside `unique_id`/`staff_id`/`respondent_id`/
+  `case_id`/`reso_id`) shipped with a blank `Account Name` on every row; they
+  now populate it. Columns whose name contains `Name`, `Phone`, `Amount` or
+  `Remark` are never chosen as the identifier.
+- Validation now distinguishes "no identifier column in this file" from "this
+  row's identifier cell is blank", and reports a stale `ACCOUNT_NAME_COLUMN`
+  once per file instead of once per row.
 
 - Relicensed from proprietary/all-rights-reserved to
   [Apache License 2.0](LICENSE). `pyproject.toml`'s `license` field and

@@ -62,10 +62,15 @@ The app has two modes — switch between them in the sidebar on the left.
 ### Transform mode (prepare an upload)
 
 1. Upload your Process Maker CSV or Excel export.
-2. Check the **Data Preview** and **Validation Report** — this tells you how
+2. Check the **Identifier Column** the app picked — this is the column that
+   becomes `Account Name` in OpenFloat (your `Staff ID`, `Respondent ID`, or
+   whatever this export calls it). The app guesses it from the headers and
+   shows you a couple of example values; if the guess is wrong, choose the
+   right column from the dropdown.
+3. Check the **Data Preview** and **Validation Report** — this tells you how
    many rows are valid and flags anything wrong (bad phone numbers,
    unrecognized networks, duplicate numbers, etc.).
-3. Click **Download OpenFloat Excel** to get the file ready for upload to
+4. Click **Download OpenFloat Excel** to get the file ready for upload to
    OpenFloat.
 
 ### Statement Report mode (check what actually happened)

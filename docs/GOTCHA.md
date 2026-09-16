@@ -99,4 +99,20 @@ git add -f docs/processmaker-input-template.xlsx
 
 ---
 
+## 7. The identifier column is detected, never hardcoded
+
+**Problem:** Real exports name the Account Name source per run — `Staff ID`, `Respondent ID`, `Staff`, `respo`, `Beneficiary Ref`. Code that reads `row.get("unique_id", "")` finds nothing, and every row silently ships with a blank `Account Name`: no hard error, valid output file, unusable upload.
+
+**Fix:** Resolve it through `normalizer.py::find_account_name_column(df.columns, config.account_name_column, frame=df)` — once per DataFrame, never per row — then read each row's cell with `resolve_unique_id`.
+
+**Two near-misses the scoring exists to prevent**, both live in the same real file: `Staff Name ` sits next to `Staff ID` (a bare keyword match would pick the name), and our own `case_remark` contains the keyword `case`. Both are killed by the EXCLUDE pass, which rejects a header before scoring it. Add a keyword without checking it against a real header list and you can resurrect either.
+
+**Where it bites:** `transformer.py` (Account Name), `validator.py` (the warnings) and `statement.py` (reconciliation entries) all resolve this — a new reader must use the same helper. Reading the tells in the UI:
+
+- a warning on *every* row saying **no identifier column found** → nothing in the file looks like an ID; pick the column in the dropdown.
+- a warning naming a column (**'Staff ID' is empty**) → detection worked, that row's cell is genuinely blank.
+- **one** warning on row 1 about a *configured* column → a stale `ACCOUNT_NAME_COLUMN` in `.env`; it fell back to detection rather than blanking the file.
+
+---
+
 *Add new gotchas below as they're discovered.*

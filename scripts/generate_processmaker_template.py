@@ -79,9 +79,14 @@ SAMPLE_ROWS = [
 ]
 
 INSTRUCTIONS = [
-    ("unique_id", "The row's Respondent ID, Staff ID, Case ID or Reso ID — "
-     "written verbatim to the output 'Account Name' column, which is how the "
-     "payment is identified in OpenFloat. A blank value is kept but warned about."),
+    ("unique_id", "The row's identifier — written verbatim to the output "
+     "'Account Name' column, which is how the payment is identified in OpenFloat. "
+     "Rename this column to suit the run: anything combining an identifier word "
+     "(Staff, Respondent, Unique, Case, Reso, Beneficiary) with ID/Number/Ref is "
+     "recognized automatically, e.g. 'Staff ID' or 'Respondent Ref'. A column "
+     "whose name contains Name, Phone, Amount or Remark is never treated as the "
+     "identifier. The app shows which column it picked and lets you change it. "
+     "A blank value is kept but warned about."),
     (
         "airtime_phone",
         "Required. Kenyan phone number. Digits only after cleanup; a leading "
@@ -110,11 +115,13 @@ INSTRUCTIONS = [
     ("survey", "Optional. Not validated by the formatter; informational only."),
     (
         "case_remark",
-        "Optional but recommended. Fixed format: "
+        "Optional but recommended. Either the full format "
         "'C#<case_number> <project_code> RESP AIRTIME-KSH<amount> <activity_code>', "
-        "e.g. 'C#37166 22505AA RESP AIRTIME-KSH29400 d05'. Written to the output 'Remark' "
-        "column in that same format (spacing normalized), which is how it comes back on the "
-        "OpenFloat Transaction Statement. "
+        "e.g. 'C#37166 22505AA RESP AIRTIME-KSH29400 d05', or just the case number, "
+        "e.g. 'C# 38305'. Written to the output 'Remark' column in the same form "
+        "(spacing normalized), which is how it comes back on the OpenFloat Transaction "
+        "Statement. The full format also lets the statement report total each case and "
+        "compare it against what was actually disbursed. "
         "If left blank, the Remark falls back to '{project_name} - {Project_Activity}'. "
         "The embedded amount is cross-checked against the row's real amount column "
         "(mismatch is a soft warning only).",

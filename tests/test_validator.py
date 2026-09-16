@@ -27,29 +27,62 @@ class TestValidatorConsentIgnored:
         assert len(report.errors) == 0
 
 
-class TestValidatorUniqueId:
-    """unique_id feeds the output Account Name — blank is a soft warning."""
+def _id_warnings(report):
+    return [w for w in report.warnings if w.field == "account_name"]
+
+
+class TestValidatorAccountName:
+    """The identifier feeding the output Account Name — missing is a soft warning."""
 
     def test_present_unique_id_no_warning(self, minimal_df, default_config):
         """A populated unique_id raises no warning."""
-        report = validate(minimal_df, default_config)
-        assert [w for w in report.warnings if w.field == "unique_id"] == []
+        assert _id_warnings(validate(minimal_df, default_config)) == []
 
     def test_blank_unique_id_warns_but_keeps_row(self, minimal_df, default_config):
-        """A blank unique_id warns; the row is still valid."""
+        """A blank identifier warns; the row is still valid."""
         minimal_df.loc[0, "unique_id"] = ""
         report = validate(minimal_df, default_config)
-        id_warnings = [w for w in report.warnings if w.field == "unique_id"]
-        assert len(id_warnings) == 1
-        assert id_warnings[0].row_number == 2
+        assert len(_id_warnings(report)) == 1
+        assert _id_warnings(report)[0].row_number == 2
         assert report.valid_rows == 2
         assert len(report.errors) == 0
 
     def test_missing_unique_id_cell_warns(self, minimal_df, default_config):
         """An empty CSV/Excel cell reads as NaN and warns the same way."""
         minimal_df.loc[0, "unique_id"] = float("nan")
-        report = validate(minimal_df, default_config)
-        assert len([w for w in report.warnings if w.field == "unique_id"]) == 1
+        assert len(_id_warnings(validate(minimal_df, default_config))) == 1
+
+    def test_staff_export_shape_is_accepted(self, minimal_df, default_config):
+        """An export with 'Staff ID' next to 'Staff Name' warns about nothing."""
+        staff_df = minimal_df.rename(columns={"unique_id": "Staff ID"})
+        staff_df["Staff Name "] = ["Test Person", "Other Person"]
+        assert _id_warnings(validate(staff_df, default_config)) == []
+
+    def test_no_id_column_at_all_warns_every_row(self, minimal_df, default_config):
+        """With no ID-shaped column, every row warns — the tell for a bad header."""
+        no_id_df = minimal_df.rename(columns={"unique_id": "label"})
+        id_warnings = _id_warnings(validate(no_id_df, default_config))
+        assert len(id_warnings) == 2
+        assert "no identifier column found" in id_warnings[0].message
+
+    def test_blank_cell_message_names_the_column(self, minimal_df, default_config):
+        """A blank cell and a missing column are different problems, said differently."""
+        minimal_df.loc[0, "unique_id"] = ""
+        message = _id_warnings(validate(minimal_df, default_config))[0].message
+        assert "'unique_id' is empty" in message
+
+    def test_explicit_column_is_used(self, minimal_df, default_config):
+        """An override picks a column detection would never have chosen."""
+        config = default_config.model_copy(update={"account_name_column": "survey"})
+        assert _id_warnings(validate(minimal_df, config)) == []
+
+    def test_stale_override_warns_once_and_falls_back(self, minimal_df, default_config):
+        """A configured column missing from the file: one file-level warning, no per-row noise."""
+        config = default_config.model_copy(update={"account_name_column": "Staff ID"})
+        id_warnings = _id_warnings(validate(minimal_df, config))
+        assert len(id_warnings) == 1
+        assert id_warnings[0].row_number == 1
+        assert "falling back to 'unique_id'" in id_warnings[0].message
 
 
 class TestValidatorPhoneValidation:
@@ -123,6 +156,12 @@ class TestValidatorDuplicates:
 
 class TestValidatorCaseRemark:
     """Test case_remark format checking (soft warning, row still included)."""
+
+    def test_short_case_remark_no_warning(self, minimal_df, default_config):
+        """'C# 38305' is a valid reference — no parse warning, no amount cross-check."""
+        minimal_df["case_remark"] = ["C# 38305", "C#38306"]
+        report = validate(minimal_df, default_config)
+        assert [w for w in report.warnings if w.field == "case_remark"] == []
 
     def test_well_formed_case_remark_no_warning(self, minimal_df, default_config):
         """A well-formed case_remark whose amount matches the Amount column produces no warning."""

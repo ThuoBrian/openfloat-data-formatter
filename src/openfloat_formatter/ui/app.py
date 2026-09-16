@@ -18,6 +18,7 @@ import pandas as pd
 import streamlit as st
 
 from openfloat_formatter.config import DEFAULT_TEMPLATE_PATH, Settings
+from openfloat_formatter.normalizer import find_account_name_column, resolve_unique_id
 from openfloat_formatter.statement import build_statement_report
 from openfloat_formatter.transformer import transform
 from openfloat_formatter.validator import validate
@@ -53,6 +54,44 @@ def main():
         render_transform_page(country_prefix)
     else:
         render_statement_report_page(country_prefix)
+
+
+AUTO_DETECT = "(auto-detect)"
+
+
+def _select_identifier_column(df: pd.DataFrame) -> str | None:
+    """Show the identifier column picker and return the user's choice.
+
+    Returns None when the auto-detect sentinel is selected, which leaves
+    `Settings.account_name_column` unset and lets detection run per file.
+    """
+    st.header("Identifier Column")
+    detected = find_account_name_column(df.columns, frame=df)
+    options = [AUTO_DETECT, *(str(column) for column in df.columns)]
+    choice = st.selectbox(
+        "Column used for the output 'Account Name'",
+        options=options,
+        index=options.index(str(detected)) if detected is not None else 0,
+        help="Staff ID, Respondent ID, Unique ID — whatever this export calls it. "
+        "Detected automatically; change it here if the guess is wrong.",
+    )
+
+    if choice == AUTO_DETECT:
+        if detected is None:
+            st.warning(
+                "No identifier column detected. Account Name will be blank for every "
+                "row — pick the right column above."
+            )
+        return None
+
+    filled = [resolve_unique_id(cell) for cell in df[choice]]
+    non_empty = [value for value in filled if value]
+    sample = ", ".join(non_empty[:3])
+    st.caption(
+        f"Account Name will use **{choice}** — {len(non_empty)}/{len(df)} rows have a "
+        f"value{f' (e.g. {sample})' if sample else ''}"
+    )
+    return choice
 
 
 def render_transform_page(country_prefix: str):
@@ -94,10 +133,19 @@ def render_transform_page(country_prefix: str):
     st.markdown(f"**{len(df)} rows** × **{len(df.columns)} columns**")
     st.dataframe(df.head(10), use_container_width=True)
 
+    # --- Identifier column ---
+    # Detected from the headers, but always shown, because a wrong guess here
+    # blanks Account Name for the whole upload and nothing else would say so.
+    # The widget is deliberately unkeyed: Streamlit derives its identity from
+    # its options, so uploading a different file resets the choice instead of
+    # carrying a stale column over.
+    id_column = _select_identifier_column(df)
+
     # --- Configuration ---
     config = Settings(
         max_amount_threshold=amount_threshold,
         default_country_prefix=country_prefix,
+        account_name_column=id_column,
         openfloat_template_path=str(DEFAULT_TEMPLATE_PATH),
     )
 
@@ -362,21 +410,27 @@ def render_statement_report_page(country_prefix: str):
                 [
                     {
                         "Case #": r.case_number,
-                        "Project": r.project_code,
-                        "Activity": r.activity_code,
-                        "Remark Amount": f"{r.remark_amount:,.0f}",
+                        "Project": r.project_code or "—",
+                        "Activity": r.activity_code or "—",
+                        "Remark Amount": (
+                            f"{r.remark_amount:,.0f}" if r.remark_amount is not None else "—"
+                        ),
                         "Rows": r.total_rows,
                         "Successful": r.successful_count,
                         "Unsuccessful": r.unsuccessful_count,
                         "Disbursed": f"{r.disbursed_total:,.0f}",
-                        "Difference": f"{r.difference:,.0f}",
+                        "Difference": (
+                            f"{r.difference:,.0f}" if r.difference is not None else "—"
+                        ),
                     }
                     for r in report.case_rollups
                 ]
             )
             st.dataframe(rollup_df, use_container_width=True)
             for r in report.case_rollups:
-                if r.difference != 0:
+                # None (short-form remark, no amount to compare) and 0 both mean
+                # "nothing to flag".
+                if r.difference:
                     st.warning(
                         f"**Case #{r.case_number} ({r.project_code})**: KSH {r.difference:,.0f} "
                         f"difference between the remark amount ({r.remark_amount:,.0f}) and "

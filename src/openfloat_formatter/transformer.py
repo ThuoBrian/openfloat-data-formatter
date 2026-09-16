@@ -13,6 +13,7 @@ from .config import Settings, settings
 from .mapper import map_network
 from .models import OutputRow, TransformResult
 from .normalizer import (
+    find_account_name_column,
     format_case_remark,
     normalize_amount,
     normalize_phone,
@@ -105,6 +106,9 @@ def _build_output_rows(
     output_rows: list[OutputRow] = []
     error_indices: set[int] = set()
 
+    # Resolved once so every row draws its Account Name from the same column.
+    id_column = find_account_name_column(df.columns, config.account_name_column, frame=df)
+
     for idx, row in df.iterrows():
         if check_hard_errors(row, config):
             error_indices.add(idx)
@@ -139,7 +143,9 @@ def _build_output_rows(
             OutputRow(
                 **{
                     "Account Type": account_type,
-                    "Account Name": resolve_unique_id(row.get("unique_id", "")),
+                    "Account Name": (
+                        resolve_unique_id(row.get(id_column, "")) if id_column else ""
+                    ),
                     "Account Number": normalized_phone,
                     "Till or Paybill Number": "",
                     "Till or Paybill Business Name": "",

@@ -10,9 +10,17 @@ Handles the normalization pipeline defined in the golden prompt §4.2:
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from typing import Any, NamedTuple
 
 import pandas as pd
+
+from .config import (
+    ACCOUNT_NAME_COLUMNS,
+    ACCOUNT_NAME_EXCLUDE_TOKENS,
+    ACCOUNT_NAME_ID_TOKENS,
+    ACCOUNT_NAME_KEYWORDS,
+)
 
 
 def normalize_phone(
@@ -108,32 +116,48 @@ def normalize_amount(raw: str | int | float) -> tuple[float, str | None]:
 #   C#<case_number> <project_code> RESP AIRTIME-KSH<amount> <activity_code>
 # Example: "C#37166 22505AA RESP AIRTIME-KSH29400 d05"
 _CASE_REMARK_PATTERN = re.compile(
-    r"^C#(?P<case_number>\d+)\s+(?P<project_code>\S+)\s+RESP\s+"
+    r"^C#\s*(?P<case_number>\d+)\s+(?P<project_code>\S+)\s+RESP\s+"
     r"AIRTIME-KSH(?P<amount>\d+)\s+(?P<activity_code>\S+)$"
 )
 
+# Short form: the case number on its own, as typed in some exports.
+# Example: "C# 38305" — no project code, amount or activity code to work with.
+_SHORT_CASE_REMARK_PATTERN = re.compile(r"^C#\s*(?P<case_number>\d+)$")
+
 
 class CaseRemarkParts(NamedTuple):
-    """Structured pieces parsed out of a manually-typed `case_remark` string."""
+    """Structured pieces parsed out of a manually-typed `case_remark` string.
+
+    Only `case_number` is always present. The rest are None when the remark was
+    typed in the short `C#<case_number>` form, so every reader must handle that
+    — in particular `amount`, which statement.py treats as the per-case total.
+    """
 
     case_number: str
-    project_code: str
-    amount: str
-    activity_code: str
+    project_code: str | None = None
+    amount: str | None = None
+    activity_code: str | None = None
 
 
 def parse_case_remark(raw: str) -> tuple[CaseRemarkParts | None, str | None]:
     """Parse a manually-typed `case_remark` string into its component pieces.
 
-    Expected format (fixed order, space-separated):
-        C#<case_number> <project_code> RESP AIRTIME-KSH<amount> <activity_code>
+    Two accepted formats, both with optional space after `C#`:
+
+    - Full: `C#<case_number> <project_code> RESP AIRTIME-KSH<amount> <activity_code>`
+    - Short: `C#<case_number>` — just the case number, as some exports type it.
+
+    A partially-typed reference (the full form with pieces missing) is still an
+    error: only these two shapes parse, so a truncated remark is caught rather
+    than silently read as a short one.
 
     Args:
         raw: The raw case_remark value entered by the user.
 
     Returns:
         A tuple of (parts, error_message).
-        On success: (CaseRemarkParts(...), None)
+        On success: (CaseRemarkParts(...), None) — with project_code, amount
+        and activity_code set to None for the short form.
         On failure: (None, error_description)
 
     Examples:
@@ -143,25 +167,33 @@ def parse_case_remark(raw: str) -> tuple[CaseRemarkParts | None, str | None]:
         True
         >>> error is None
         True
+        >>> parse_case_remark("C# 38305")[0]
+        CaseRemarkParts(case_number='38305', project_code=None, amount=None, activity_code=None)
         >>> parse_case_remark("garbage")[0] is None
         True
     """
-    match = _CASE_REMARK_PATTERN.match(raw.strip())
-    if match is None:
+    cleaned = raw.strip()
+    match = _CASE_REMARK_PATTERN.match(cleaned)
+    if match is not None:
         return (
+            CaseRemarkParts(
+                case_number=match.group("case_number"),
+                project_code=match.group("project_code"),
+                amount=match.group("amount"),
+                activity_code=match.group("activity_code"),
+            ),
             None,
-            f"case_remark '{raw}' does not match expected format "
-            f"'C#<case_number> <project_code> RESP AIRTIME-KSH<amount> <activity_code>'",
         )
 
+    short_match = _SHORT_CASE_REMARK_PATTERN.match(cleaned)
+    if short_match is not None:
+        return CaseRemarkParts(case_number=short_match.group("case_number")), None
+
     return (
-        CaseRemarkParts(
-            case_number=match.group("case_number"),
-            project_code=match.group("project_code"),
-            amount=match.group("amount"),
-            activity_code=match.group("activity_code"),
-        ),
         None,
+        f"case_remark '{raw}' does not match expected format "
+        f"'C#<case_number> <project_code> RESP AIRTIME-KSH<amount> <activity_code>' "
+        f"or 'C#<case_number>'",
     )
 
 
@@ -188,16 +220,13 @@ def resolve_case_remark(cell: Any) -> tuple[str, CaseRemarkParts | None, str | N
 
 
 def resolve_unique_id(cell: Any) -> str:
-    """Resolve a raw `unique_id` cell into the output 'Account Name' value.
+    """Read a single identifier cell, guarding against pandas NaN.
 
-    `unique_id` carries the row's Respondent ID / Staff ID / Case ID / Reso ID,
-    which OpenFloat shows as the account's name. Centralizes the pandas
-    NaN-guard so validator.py and transformer.py can't drift apart on how the
-    cell is read — str(NaN) would otherwise write the literal string "nan"
-    into Account Name.
+    Centralizes the NaN-guard so every caller reads the cell the same way —
+    str(NaN) would otherwise write the literal string "nan" into Account Name.
 
     Args:
-        cell: The raw cell value from `row.get("unique_id", "")`.
+        cell: A raw identifier cell value.
 
     Returns:
         The trimmed identifier, or "" when the cell is empty/absent.
@@ -205,11 +234,104 @@ def resolve_unique_id(cell: Any) -> str:
     return "" if pd.isna(cell) else str(cell).strip()
 
 
+def _header_key(name: object) -> str:
+    """Normalize a column header for tolerant matching.
+
+    Lower-cases and drops spaces, underscores, hyphens, dots and slashes, so
+    'Staff ID', 'staff_id' and 'staffid' all collapse to the same key. Also
+    absorbs the stray trailing spaces real exports pick up ('Staff Name ').
+    """
+    return re.sub(r"[\s_\-./]+", "", str(name).strip().lower())
+
+
+_CANONICAL_KEYS = frozenset(_header_key(name) for name in ACCOUNT_NAME_COLUMNS)
+
+
+def _score_header(key: str) -> int:
+    """Score how much a normalized header looks like an identifier column."""
+    if any(token in key for token in ACCOUNT_NAME_EXCLUDE_TOKENS):
+        return 0
+    if key in _CANONICAL_KEYS:
+        return 4
+    has_keyword = any(token in key for token in ACCOUNT_NAME_KEYWORDS)
+    has_id_token = any(
+        key.startswith(token) or key.endswith(token) for token in ACCOUNT_NAME_ID_TOKENS
+    )
+    if has_keyword and has_id_token:
+        return 3
+    if has_keyword or key == "id":
+        return 2
+    if has_id_token:
+        return 1
+    return 0
+
+
+def find_account_name_column(
+    columns: Iterable[object],
+    override: str | None = None,
+    frame: pd.DataFrame | None = None,
+) -> str | None:
+    """Pick the input column whose values become the output 'Account Name'.
+
+    Exports name that column per run — `unique_id`, `Staff ID`, `Staff`,
+    `Respondent ID`, `respo`, `Beneficiary Ref` — so it is detected by shape
+    instead of matched against a fixed list: a keyword (staff/resp/unique/case/
+    reso/beneficiary/participant/enumerator) and/or an ID-ish token (id/number/
+    ref/code), with 'Name', 'Phone', 'Amount', 'Remark' and friends rejected
+    outright. Highest score wins, ties break leftmost.
+
+    Resolve this ONCE per DataFrame and read every row from the column it
+    returns — resolving per row lets one blank cell silently pull that row's
+    Account Name from a different column than its neighbours.
+
+    Args:
+        columns: The input file's column headers.
+        override: An explicit column chosen by the user (UI picker) or set via
+            `ACCOUNT_NAME_COLUMN`. Matched exactly first, then by `_header_key`
+            so 'staff id' finds 'Staff ID'. An override naming a column the file
+            does not have falls back to detection rather than blanking the
+            output — a stale .env must not break an otherwise fine run.
+        frame: The DataFrame those columns came from. When given, a candidate
+            that is entirely empty is passed over in favour of the next-best one
+            that holds data.
+
+    Returns:
+        The chosen column, or None when nothing in the file looks like an
+        identifier.
+    """
+    names = list(columns)
+    if override:
+        if override in names:
+            return override
+        matched = {_header_key(name): name for name in names}.get(_header_key(override))
+        if matched is not None:
+            return str(matched)
+
+    scored = [(_score_header(_header_key(name)), -position, name)
+              for position, name in enumerate(names)]
+    ranked = [name for score, _, name in sorted(scored, reverse=True) if score > 0]
+    if not ranked:
+        return None
+
+    # Prefer the best-scoring candidate that actually holds data. A file
+    # carrying both an empty `unique_id` and a populated `Staff ID` should use
+    # Staff ID for every row, rather than blanking the whole column.
+    if frame is not None:
+        for name in ranked:
+            if any(resolve_unique_id(cell) for cell in frame[name]):
+                return str(name)
+    return str(ranked[0])
+
+
 def format_case_remark(parts: CaseRemarkParts) -> str:
     """Format parsed `case_remark` pieces into the OpenFloat Remark string.
 
     Emits the same fixed case-reference format the input uses:
         C#<case_number> <project_code> RESP AIRTIME-KSH<amount> <activity_code>
+
+    A remark typed in the short form comes back out short (`C#38305`) — there is
+    nothing to pad it with, and inventing a project code or amount would put a
+    fabricated figure in front of finance.
 
     Going out in this exact shape matters because OpenFloat echoes the Remark
     back in its Transaction Statement export, where `statement.py` parses it
@@ -220,7 +342,11 @@ def format_case_remark(parts: CaseRemarkParts) -> str:
     Examples:
         >>> format_case_remark(CaseRemarkParts("37166", "22505AA", "29400", "d05"))
         'C#37166 22505AA RESP AIRTIME-KSH29400 d05'
+        >>> format_case_remark(CaseRemarkParts("38305"))
+        'C#38305'
     """
+    if parts.project_code is None or parts.amount is None or parts.activity_code is None:
+        return f"C#{parts.case_number}"
     return (
         f"C#{parts.case_number} {parts.project_code} RESP "
         f"AIRTIME-KSH{parts.amount} {parts.activity_code}"

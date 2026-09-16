@@ -17,6 +17,8 @@ from .config import Settings, settings
 from .mapper import map_network
 from .models import FilteredCounts, IssueSeverity, ValidationIssue, ValidationReport
 from .normalizer import (
+    _header_key,
+    find_account_name_column,
     normalize_amount,
     normalize_phone,
     resolve_case_remark,
@@ -84,6 +86,35 @@ def validate(
     warnings: list[ValidationIssue] = []
     filtered_counts = FilteredCounts()
 
+    # Resolved once for the whole file, not per row — see
+    # normalizer.find_account_name_column.
+    configured_column = config.account_name_column
+    id_column = find_account_name_column(df.columns, configured_column, frame=df)
+    if configured_column and (
+        id_column is None or _header_key(id_column) != _header_key(configured_column)
+    ):
+        # A stale ACCOUNT_NAME_COLUMN must not blank the upload silently, and it
+        # is a file-level problem — one warning, not one per row.
+        fallback = (
+            f"falling back to '{id_column}'" if id_column else "no identifier column detected"
+        )
+        warnings.append(
+            ValidationIssue(
+                row_number=1,
+                severity=IssueSeverity.WARNING,
+                field="account_name",
+                message=(
+                    f"Configured identifier column '{configured_column}' is not in "
+                    f"this file — {fallback}"
+                ),
+            )
+        )
+    no_id_message = (
+        f"no identifier column found — Account Name will be blank. "
+        f"Columns in this file: {', '.join(str(c) for c in df.columns)}. "
+        f"Pick the right one in the app, or set ACCOUNT_NAME_COLUMN"
+    )
+
     # Track which rows have hard errors (will be excluded)
     rows_with_errors: set[int] = set()
 
@@ -123,16 +154,19 @@ def validate(
             )
 
         # --- Account Name source (soft warning; the upload should stay traceable) ---
-        if not resolve_unique_id(row.get("unique_id", "")):
+        if id_column is None:
+            id_message = no_id_message
+        elif not resolve_unique_id(row.get(id_column, "")):
+            id_message = f"'{id_column}' is empty — Account Name will be blank"
+        else:
+            id_message = ""
+        if id_message:
             warnings.append(
                 ValidationIssue(
                     row_number=row_num,
                     severity=IssueSeverity.WARNING,
-                    field="unique_id",
-                    message=(
-                        f"Row {row_num}: unique_id is empty — Account Name "
-                        f"will be blank in the output"
-                    ),
+                    field="account_name",
+                    message=f"Row {row_num}: {id_message}",
                 )
             )
 
@@ -153,6 +187,7 @@ def validate(
             elif (
                 amount_error is None
                 and case_remark_parts is not None
+                and case_remark_parts.amount is not None
                 and float(case_remark_parts.amount) != amount_value
             ):
                 warnings.append(

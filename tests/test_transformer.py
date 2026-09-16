@@ -77,6 +77,32 @@ class TestBuildOutputRows:
         assert rows[0].account_name == "TEST001"
         assert rows[1].account_name == "TEST002"
 
+    def test_account_name_from_staff_id_column(self, minimal_df, default_config):
+        """An export that calls the ID column 'Staff ID' still fills Account Name."""
+        staff_df = minimal_df.rename(columns={"unique_id": "Staff ID"})
+        staff_df["Staff Name "] = ["Test Person", "Other Person"]
+        rows, _ = _build_output_rows(staff_df, default_config)
+        assert rows[0].account_name == "TEST001"
+
+    def test_case_remark_is_never_the_account_name(self, minimal_df, default_config):
+        """With no ID column, Account Name is blank — case_remark must not stand in."""
+        no_id_df = minimal_df.rename(columns={"unique_id": "label"})
+        no_id_df["case_remark"] = ["C#37166 22505AA RESP AIRTIME-KSH150 d05", ""]
+        rows, _ = _build_output_rows(no_id_df, default_config)
+        assert [row.account_name for row in rows] == ["", ""]
+
+    def test_explicit_column_overrides_detection(self, minimal_df, default_config):
+        """The UI picker's choice wins over what detection would have picked."""
+        config = default_config.model_copy(update={"account_name_column": "survey"})
+        rows, _ = _build_output_rows(minimal_df, config)
+        assert rows[0].account_name == "Baseline"
+
+    def test_stale_override_falls_back_to_detection(self, minimal_df, default_config):
+        """A stale ACCOUNT_NAME_COLUMN must not blank the upload."""
+        config = default_config.model_copy(update={"account_name_column": "Staff ID"})
+        rows, _ = _build_output_rows(minimal_df, config)
+        assert rows[0].account_name == "TEST001"
+
     def test_blank_unique_id_gives_empty_account_name(self, minimal_df, default_config):
         """A NaN unique_id writes an empty Account Name, never the string "nan"."""
         minimal_df.loc[0, "unique_id"] = float("nan")
@@ -94,6 +120,13 @@ class TestBuildOutputRows:
         """Remark falls back to 'project_name - Project_Activity' when case_remark is absent."""
         rows, _ = _build_output_rows(minimal_df, default_config)
         assert rows[0].remark == "Test Project - g05|Testing"
+
+    def test_remark_from_short_case_remark(self, minimal_df, default_config):
+        """A short 'C# 38305' is canonicalized to 'C#38305', not dumped as raw text."""
+        minimal_df["case_remark"] = ["C# 38305", ""]
+        rows, _ = _build_output_rows(minimal_df, default_config)
+        assert rows[0].remark == "C#38305"
+        assert parse_case_remark(rows[0].remark)[1] is None
 
     def test_remark_from_case_remark(self, minimal_df, default_config):
         """Remark is built from a well-formed case_remark, taking priority over project/activity."""

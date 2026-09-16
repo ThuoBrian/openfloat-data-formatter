@@ -153,17 +153,22 @@ class CaseRollup(BaseModel):
     The amount embedded in the remark (`AIRTIME-KSH<amount>`) is the per-case
     total, so `difference` (disbursed_total - remark_amount) is the meaningful
     shortfall/overage flag, not a per-row comparison.
+
+    A remark typed in the short `C#<case_number>` form carries no amount,
+    project code or activity code, so `remark_amount` and `difference` are None
+    for those cases: the rows still roll up and total, there is simply nothing
+    to compare the disbursed figure against.
     """
 
     case_number: str
-    project_code: str
-    activity_code: str
-    remark_amount: float
+    project_code: str = ""
+    activity_code: str = ""
+    remark_amount: float | None = None
     total_rows: int = 0
     successful_count: int = 0
     unsuccessful_count: int = 0
     disbursed_total: float = 0.0
-    difference: float = 0.0
+    difference: float | None = None
 
 
 class ReconciliationEntry(BaseModel):

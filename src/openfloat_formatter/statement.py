@@ -47,7 +47,12 @@ from .models import (
     StatementReport,
     StatementTransaction,
 )
-from .normalizer import normalize_phone, resolve_case_remark
+from .normalizer import (
+    find_account_name_column,
+    normalize_phone,
+    resolve_case_remark,
+    resolve_unique_id,
+)
 
 STATEMENT_SHEET_NAME = "Transaction Statement"
 
@@ -348,7 +353,8 @@ def rollup_by_case(
 
     Rows whose Remark failed to parse are excluded and counted in the
     returned unparsed count. `difference` is disbursed_total - remark_amount
-    (the remark amount is the per-case total), the soft shortfall flag.
+    (the remark amount is the per-case total), the soft shortfall flag — both
+    are None for a short-form `C#<case_number>` remark, which carries no amount.
 
     Returns:
         A tuple of (rollups sorted by case_number, unparsed_remark_count).
@@ -362,11 +368,12 @@ def rollup_by_case(
                 unparsed += 1
             continue
         parts = txn.remark_parts
-        key = (parts.case_number, parts.project_code, parts.activity_code)
+        key = (parts.case_number, parts.project_code or "", parts.activity_code or "")
         group = groups.setdefault(
             key,
             {
-                "remark_amount": float(parts.amount),
+                # None for a short-form remark: nothing to compare against.
+                "remark_amount": float(parts.amount) if parts.amount is not None else None,
                 "total_rows": 0,
                 "successful_count": 0,
                 "unsuccessful_count": 0,
@@ -390,7 +397,11 @@ def rollup_by_case(
             successful_count=group["successful_count"],
             unsuccessful_count=group["unsuccessful_count"],
             disbursed_total=group["disbursed_total"],
-            difference=group["disbursed_total"] - group["remark_amount"],
+            difference=(
+                None
+                if group["remark_amount"] is None
+                else group["disbursed_total"] - group["remark_amount"]
+            ),
         )
         for (case_number, project_code, activity_code), group in groups.items()
     ]
@@ -427,6 +438,9 @@ def reconcile(
     if config is None:
         config = settings
     prefix = config.default_country_prefix
+    id_column = find_account_name_column(
+        input_df.columns, config.account_name_column, frame=input_df
+    )
 
     # --- Statement side: index transactions by normalized phone ---
     statement_by_phone: dict[str, list[StatementTransaction]] = defaultdict(list)
@@ -452,7 +466,7 @@ def reconcile(
 
     entries: dict[str, ReconciliationEntry] = {}
     for row_number, phone, phone_error, row, amount in normalized_rows:
-        unique_id = str(row.get("unique_id", "")).strip()
+        unique_id = resolve_unique_id(row.get(id_column, "")) if id_column else ""
         if phone_error is not None:
             # Unnormalizable input phone: keep the raw value as the key and
             # surface the error — it can never match a statement row.

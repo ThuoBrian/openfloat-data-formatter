@@ -101,6 +101,43 @@ class TestTransform:
         assert response.status_code == 422
 
 
+class TestIdentifierColumnOverTheApi:
+    """The identifier column is detected per request, or named explicitly."""
+
+    def test_detects_staff_id_export(self, client, minimal_df):
+        """A 'Staff ID' export transforms without any override."""
+        staff_df = minimal_df.rename(columns={"unique_id": "Staff ID"})
+        response = client.post(
+            "/validate",
+            files={"file": ("input.csv", _csv_bytes(staff_df), "text/csv")},
+        )
+        assert response.status_code == 200
+        id_warnings = [w for w in response.json()["warnings"] if w["field"] == "account_name"]
+        assert id_warnings == []
+
+    def test_explicit_column_is_honored(self, client, minimal_df):
+        """account_name_column names a column detection would not have picked."""
+        no_id_df = minimal_df.rename(columns={"unique_id": "label"})
+        response = client.post(
+            "/validate",
+            files={"file": ("input.csv", _csv_bytes(no_id_df), "text/csv")},
+            data={"account_name_column": "label"},
+        )
+        assert response.status_code == 200
+        id_warnings = [w for w in response.json()["warnings"] if w["field"] == "account_name"]
+        assert id_warnings == []
+
+    def test_stale_override_still_transforms(self, client, minimal_df):
+        """A column missing from the file falls back to detection, never a 500."""
+        response = client.post(
+            "/transform",
+            files={"file": ("input.csv", _csv_bytes(minimal_df), "text/csv")},
+            data={"account_name_column": "Staff ID"},
+        )
+        assert response.status_code == 200
+        assert response.headers["content-type"] == XLSX_MEDIA_TYPE
+
+
 class TestStatementReport:
     """POST /statement-report."""
 

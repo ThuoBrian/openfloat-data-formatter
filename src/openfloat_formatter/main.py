@@ -21,11 +21,11 @@ from pathlib import Path
 from typing import Annotated
 
 import pandas as pd
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
-from .config import settings
+from .config import Settings, settings
 from .models import StatementReport, ValidationReport
 from .statement import build_statement_report
 from .transformer import transform
@@ -49,6 +49,15 @@ app.add_middleware(
 )
 
 
+def _request_config(account_name_column: str | None) -> Settings:
+    """Per-request settings, overriding only the identifier column.
+
+    Copies the singleton rather than building a fresh `Settings()`, which would
+    re-read .env on every request and could raise at request time.
+    """
+    return settings.model_copy(update={"account_name_column": account_name_column})
+
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
@@ -56,21 +65,31 @@ async def health_check():
 
 
 @app.post("/validate", response_model=ValidationReport)
-async def validate_file(file: Annotated[UploadFile, File()]):
+async def validate_file(
+    file: Annotated[UploadFile, File()],
+    account_name_column: Annotated[str | None, Form()] = None,
+):
     """Validate a Process Maker CSV/Excel file without transforming it.
 
     Returns a JSON validation report with row counts, errors, and warnings.
+    `account_name_column` optionally names the identifier column feeding the
+    output 'Account Name'; omit it to detect the column from the headers.
     """
     df = await _read_uploaded_file(file)
-    report = run_validation(df)
+    report = run_validation(df, _request_config(account_name_column))
     return report
 
 
 @app.post("/transform")
-async def transform_file(file: Annotated[UploadFile, File()]):
+async def transform_file(
+    file: Annotated[UploadFile, File()],
+    account_name_column: Annotated[str | None, Form()] = None,
+):
     """Transform a Process Maker CSV/Excel file into an OpenFloat-ready Excel file.
 
     Returns the transformed .xlsx file as a binary download.
+    `account_name_column` optionally names the identifier column feeding the
+    output 'Account Name'; omit it to detect the column from the headers.
     """
     # Save uploaded file to temp location
     with tempfile.NamedTemporaryFile(
@@ -81,7 +100,7 @@ async def transform_file(file: Annotated[UploadFile, File()]):
         tmp_path = tmp.name
 
     try:
-        result = transform(tmp_path)
+        result = transform(tmp_path, _request_config(account_name_column))
     finally:
         # Clean up temp file
         Path(tmp_path).unlink(missing_ok=True)
