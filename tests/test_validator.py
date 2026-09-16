@@ -27,6 +27,31 @@ class TestValidatorConsentIgnored:
         assert len(report.errors) == 0
 
 
+class TestValidatorUniqueId:
+    """unique_id feeds the output Account Name — blank is a soft warning."""
+
+    def test_present_unique_id_no_warning(self, minimal_df, default_config):
+        """A populated unique_id raises no warning."""
+        report = validate(minimal_df, default_config)
+        assert [w for w in report.warnings if w.field == "unique_id"] == []
+
+    def test_blank_unique_id_warns_but_keeps_row(self, minimal_df, default_config):
+        """A blank unique_id warns; the row is still valid."""
+        minimal_df.loc[0, "unique_id"] = ""
+        report = validate(minimal_df, default_config)
+        id_warnings = [w for w in report.warnings if w.field == "unique_id"]
+        assert len(id_warnings) == 1
+        assert id_warnings[0].row_number == 2
+        assert report.valid_rows == 2
+        assert len(report.errors) == 0
+
+    def test_missing_unique_id_cell_warns(self, minimal_df, default_config):
+        """An empty CSV/Excel cell reads as NaN and warns the same way."""
+        minimal_df.loc[0, "unique_id"] = float("nan")
+        report = validate(minimal_df, default_config)
+        assert len([w for w in report.warnings if w.field == "unique_id"]) == 1
+
+
 class TestValidatorPhoneValidation:
     """Test phone number validation in the validator context."""
 

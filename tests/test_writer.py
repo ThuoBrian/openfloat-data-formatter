@@ -5,6 +5,7 @@ import pytest
 
 from openfloat_formatter.models import OutputRow
 from openfloat_formatter.writer import (
+    _as_phone_number,
     _sanitize_cell_value,
     load_allowed_types,
     write_openfloat_excel,
@@ -117,11 +118,24 @@ class TestWriteOpenfloatExcel:
         # Row 2 should have the first data row
         assert ws.cell(row=2, column=1).value == "Safaricom Prepaid"
         assert ws.cell(row=2, column=2).value == "TEST001"
-        assert ws.cell(row=2, column=3).value == "254712345678"
+        assert ws.cell(row=2, column=3).value == 254712345678
         assert ws.cell(row=2, column=7).value == 150.0
         # Row 3 should have the second data row
         assert ws.cell(row=3, column=1).value == "Airtel Prepaid"
         assert ws.cell(row=3, column=2).value == "TEST002"
+        wb.close()
+
+    def test_phone_columns_are_numbers(self, sample_output_rows, allowed_types):
+        """Both phone columns hold ints displayed as plain digits, not text or 2.5E+11."""
+        buffer = write_openfloat_excel(sample_output_rows, allowed_types)
+        buffer.seek(0)
+        wb = openpyxl.load_workbook(buffer)
+        ws = wb["Accounts"]
+        for column in (3, 6):  # Account Number, Notification Phone Number
+            cell = ws.cell(row=2, column=column)
+            assert cell.value == 254712345678
+            assert isinstance(cell.value, int)
+            assert cell.number_format == "0"
         wb.close()
 
     def test_allowed_types_sheet_verbatim(self, sample_output_rows, allowed_types):
@@ -179,6 +193,19 @@ class TestWriteOpenfloatExcel:
         wb.close()
 
 
+class TestAsPhoneNumber:
+    """The phone-cell coercion used for Account Number / Notification Phone Number."""
+
+    def test_leading_zero_stays_text(self):
+        """A non-254 prefix could yield a leading zero — keep it as text, don't drop it."""
+        assert _as_phone_number("012345678") == "012345678"
+
+    def test_non_numeric_stays_text(self):
+        """Anything that isn't a plain digit run is written unchanged."""
+        assert _as_phone_number("") == ""
+        assert _as_phone_number("254-712-345678") == "254-712-345678"
+
+
 class TestSanitizeCellValue:
     """Test the formula-injection guard directly."""
 
@@ -188,7 +215,7 @@ class TestSanitizeCellValue:
         assert _sanitize_cell_value(value) == f"'{value}"
 
     def test_leaves_normal_text_untouched(self):
-        text = "Case #37166 | 22505AA | RESP"
+        text = "C#37166 22505AA RESP AIRTIME-KSH29400 d05"
         assert _sanitize_cell_value(text) == text
 
     def test_leaves_non_string_untouched(self):

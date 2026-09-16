@@ -1,7 +1,7 @@
 """Excel output generation for the OpenFloat Data Formatter.
 
 Writes a two-sheet .xlsx file matching the OpenFloat Transactions Template:
-- Accounts: transformed data rows
+- Accounts: transformed data rows (phone columns written as numbers, not text)
 - Allowed Types: verbatim copy from the reference template
 
 The Allowed Types sheet must be copied exactly (including trailing spaces
@@ -21,6 +21,25 @@ from .models import OutputRow
 
 # Leading characters that Excel/openpyxl treat as the start of a formula.
 _FORMULA_TRIGGER_CHARS = ("=", "+", "-", "@")
+
+# Account Number and Notification Phone Number go out as real numbers, not text:
+# that is how OpenFloat stores them (its Transaction Statement export returns
+# 254XXXXXXXXX as an int). "0" pins the display to plain digits — a 12-digit
+# number under General format renders as 2.54713E+11 in a narrow column.
+_PHONE_COLUMNS = ("Account Number", "Notification Phone Number")
+_PHONE_NUMBER_FORMAT = "0"
+
+
+def _as_phone_number(value: str) -> int | str:
+    """Coerce a normalized phone string into an int for a Number-format cell.
+
+    Falls back to the original string when the value is not a plain run of
+    digits, or when it starts with a zero that int() would silently drop
+    (reachable if `default_country_prefix` is set to something other than 254).
+    """
+    if value.isdigit() and not value.startswith("0"):
+        return int(value)
+    return value
 
 
 def _sanitize_cell_value(value: object) -> object:
@@ -115,17 +134,22 @@ def write_openfloat_excel(
     ws_accounts.append(OPENFLOAT_ACCOUNTS_COLUMNS)
 
     # Write data rows
+    phone_columns = [OPENFLOAT_ACCOUNTS_COLUMNS.index(name) + 1 for name in _PHONE_COLUMNS]
     for row in rows:
         ws_accounts.append([
             _sanitize_cell_value(row.account_type),
             _sanitize_cell_value(row.account_name),
-            _sanitize_cell_value(row.account_number),
+            _as_phone_number(row.account_number),
             _sanitize_cell_value(row.till_or_paybill_number),
             _sanitize_cell_value(row.till_or_paybill_business_name),
-            _sanitize_cell_value(row.notification_phone_number),
+            _as_phone_number(row.notification_phone_number),
             row.amount,
             _sanitize_cell_value(row.remark),
         ])
+        for col in phone_columns:
+            cell = ws_accounts.cell(row=ws_accounts.max_row, column=col)
+            if isinstance(cell.value, int):
+                cell.number_format = _PHONE_NUMBER_FORMAT
 
     # --- Allowed Types sheet ---
     ws_types = wb.create_sheet(title="Allowed Types")

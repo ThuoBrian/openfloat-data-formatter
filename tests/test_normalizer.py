@@ -194,7 +194,26 @@ class TestFormatCaseRemark:
         parts = CaseRemarkParts(
             case_number="37166", project_code="22505AA", amount="29400", activity_code="d05"
         )
-        assert format_case_remark(parts) == "Case #37166 | 22505AA | RESP | AIRTIME KSH 29400 | d05"
+        assert format_case_remark(parts) == "C#37166 22505AA RESP AIRTIME-KSH29400 d05"
+
+    def test_round_trips_through_parse(self):
+        """The Remark written to the upload must parse back out of the statement.
+
+        OpenFloat echoes Remark into its Transaction Statement, where
+        statement.py re-parses it with parse_case_remark to roll up per case.
+        """
+        parts = CaseRemarkParts(
+            case_number="37166", project_code="22505AA", amount="29400", activity_code="d05"
+        )
+        reparsed, error = parse_case_remark(format_case_remark(parts))
+        assert error is None
+        assert reparsed == parts
+
+    def test_canonicalizes_spacing(self):
+        """Ragged input spacing comes out single-spaced but otherwise identical."""
+        parts, _ = parse_case_remark("C#37166   22505AA  RESP   AIRTIME-KSH29400  d05")
+        assert parts is not None
+        assert format_case_remark(parts) == "C#37166 22505AA RESP AIRTIME-KSH29400 d05"
 
 
 class TestResolveCaseRemark:

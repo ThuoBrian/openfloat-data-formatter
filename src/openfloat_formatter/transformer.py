@@ -17,6 +17,7 @@ from .normalizer import (
     normalize_amount,
     normalize_phone,
     resolve_case_remark,
+    resolve_unique_id,
 )
 from .validator import check_hard_errors, validate
 from .writer import load_allowed_types, write_openfloat_excel
@@ -138,7 +139,7 @@ def _build_output_rows(
             OutputRow(
                 **{
                     "Account Type": account_type,
-                    "Account Name": str(row.get("unique_id", "")),
+                    "Account Name": resolve_unique_id(row.get("unique_id", "")),
                     "Account Number": normalized_phone,
                     "Till or Paybill Number": "",
                     "Till or Paybill Business Name": "",

@@ -32,7 +32,7 @@ Full walkthrough — starting the app later, updates, using both modes, FAQ:
 The app has two modes, picked in the sidebar:
 
 - **Transform** — upload a Process Maker export; the app checks every row
-  (phone numbers, network, amounts, duplicates), tells you exactly
+  (IDs, phone numbers, network, amounts, duplicates), tells you exactly
   what's wrong, and builds the OpenFloat-ready Excel file to upload.
 - **Statement Report** — upload the Transaction Statement file(s) OpenFloat
   gives you after disbursement; the app reports successful vs unsuccessful

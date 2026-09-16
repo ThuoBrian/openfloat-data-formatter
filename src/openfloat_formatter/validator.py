@@ -2,7 +2,7 @@
 
 Scans a Process Maker DataFrame and collects all issues before transformation.
 Hard errors (phone, network, amount) exclude rows from output.
-Soft warnings (duplicates, high amounts) include rows but flag them.
+Soft warnings (duplicates, high amounts, blank unique_id) include rows but flag them.
 
 Implements the validation rules from the golden prompt §4.
 """
@@ -16,7 +16,12 @@ import pandas as pd
 from .config import Settings, settings
 from .mapper import map_network
 from .models import FilteredCounts, IssueSeverity, ValidationIssue, ValidationReport
-from .normalizer import normalize_amount, normalize_phone, resolve_case_remark
+from .normalizer import (
+    normalize_amount,
+    normalize_phone,
+    resolve_case_remark,
+    resolve_unique_id,
+)
 
 
 def check_hard_errors(row: pd.Series, config: Settings) -> list[tuple[str, str]]:
@@ -113,6 +118,20 @@ def validate(
                     message=(
                         f"Row {row_num}: Amount {amount_value} exceeds "
                         f"threshold {config.max_amount_threshold}"
+                    ),
+                )
+            )
+
+        # --- Account Name source (soft warning; the upload should stay traceable) ---
+        if not resolve_unique_id(row.get("unique_id", "")):
+            warnings.append(
+                ValidationIssue(
+                    row_number=row_num,
+                    severity=IssueSeverity.WARNING,
+                    field="unique_id",
+                    message=(
+                        f"Row {row_num}: unique_id is empty — Account Name "
+                        f"will be blank in the output"
                     ),
                 )
             )

@@ -187,14 +187,41 @@ def resolve_case_remark(cell: Any) -> tuple[str, CaseRemarkParts | None, str | N
     return raw, parts, error
 
 
+def resolve_unique_id(cell: Any) -> str:
+    """Resolve a raw `unique_id` cell into the output 'Account Name' value.
+
+    `unique_id` carries the row's Respondent ID / Staff ID / Case ID / Reso ID,
+    which OpenFloat shows as the account's name. Centralizes the pandas
+    NaN-guard so validator.py and transformer.py can't drift apart on how the
+    cell is read — str(NaN) would otherwise write the literal string "nan"
+    into Account Name.
+
+    Args:
+        cell: The raw cell value from `row.get("unique_id", "")`.
+
+    Returns:
+        The trimmed identifier, or "" when the cell is empty/absent.
+    """
+    return "" if pd.isna(cell) else str(cell).strip()
+
+
 def format_case_remark(parts: CaseRemarkParts) -> str:
     """Format parsed `case_remark` pieces into the OpenFloat Remark string.
 
+    Emits the same fixed case-reference format the input uses:
+        C#<case_number> <project_code> RESP AIRTIME-KSH<amount> <activity_code>
+
+    Going out in this exact shape matters because OpenFloat echoes the Remark
+    back in its Transaction Statement export, where `statement.py` parses it
+    with `parse_case_remark` to roll payments up per case. Round-tripping a
+    parse of this output is what keeps that working; the only change from the
+    typed input is canonical single-space separation.
+
     Examples:
         >>> format_case_remark(CaseRemarkParts("37166", "22505AA", "29400", "d05"))
-        'Case #37166 | 22505AA | RESP | AIRTIME KSH 29400 | d05'
+        'C#37166 22505AA RESP AIRTIME-KSH29400 d05'
     """
     return (
-        f"Case #{parts.case_number} | {parts.project_code} | RESP | "
-        f"AIRTIME KSH {parts.amount} | {parts.activity_code}"
+        f"C#{parts.case_number} {parts.project_code} RESP "
+        f"AIRTIME-KSH{parts.amount} {parts.activity_code}"
     )

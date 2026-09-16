@@ -1,6 +1,7 @@
 """Tests for the transformer module — end-to-end transformation pipeline."""
 
 
+from openfloat_formatter.normalizer import parse_case_remark
 from openfloat_formatter.transformer import _build_output_rows, transform
 
 
@@ -70,6 +71,18 @@ class TestBuildOutputRows:
         assert rows[0].account_type == "Safaricom Prepaid"
         assert rows[1].account_type == "Airtel Prepaid"
 
+    def test_account_name_from_unique_id(self, minimal_df, default_config):
+        """Account Name is the unique_id (Respondent/Staff/Case/Reso ID) verbatim."""
+        rows, _ = _build_output_rows(minimal_df, default_config)
+        assert rows[0].account_name == "TEST001"
+        assert rows[1].account_name == "TEST002"
+
+    def test_blank_unique_id_gives_empty_account_name(self, minimal_df, default_config):
+        """A NaN unique_id writes an empty Account Name, never the string "nan"."""
+        minimal_df.loc[0, "unique_id"] = float("nan")
+        rows, _ = _build_output_rows(minimal_df, default_config)
+        assert rows[0].account_name == ""
+
     def test_legacy_consent_column_ignored(self, minimal_df, default_config):
         """A leftover consent column excludes nothing — consent=No rows still output."""
         minimal_df["consent"] = ["No", ""]
@@ -89,7 +102,9 @@ class TestBuildOutputRows:
             "",
         ]
         rows, _ = _build_output_rows(minimal_df, default_config)
-        assert rows[0].remark == "Case #37166 | 22505AA | RESP | AIRTIME KSH 29400 | d05"
+        assert rows[0].remark == "C#37166 22505AA RESP AIRTIME-KSH29400 d05"
+        # The statement reader must be able to parse the Remark back out.
+        assert parse_case_remark(rows[0].remark)[1] is None
         # Row 1 has no case_remark, so it falls back to project/activity.
         assert rows[1].remark == "Test Project - g05|Testing"
 

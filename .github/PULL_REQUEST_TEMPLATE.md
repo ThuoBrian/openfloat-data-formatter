@@ -18,11 +18,12 @@
 <!-- Check any that this PR affects, so reviewers know which CLAUDE.md rules to double-check. -->
 
 - [ ] Phone normalization
+- [ ] `unique_id` / Account Name
 - [ ] Network → Account Type mapping
 - [ ] Duplicate detection
 - [ ] Amount validation
 - [ ] `case_remark` / Remark parsing
-- [ ] Output writer (Excel formatting, sanitization, Allowed Types sheet)
+- [ ] Output writer (Excel formatting, number vs text cells, sanitization, Allowed Types sheet)
 - [ ] None of the above
 
 ## Error handling convention
@@ -30,7 +31,7 @@
 <!-- If validation logic changed, confirm the hard-error / soft-warning split still holds. -->
 
 - [ ] Hard errors (invalid phone, unmapped network, invalid amount) still exclude the row and are reported in `errors`
-- [ ] Soft warnings (duplicates, high amounts, `case_remark` parse/mismatch) still include the row and are reported in `warnings`
+- [ ] Soft warnings (duplicates, high amounts, blank `unique_id`, `case_remark` parse/mismatch) still include the row and are reported in `warnings`
 - [ ] Validator still never mutates the input DataFrame
 - [ ] N/A — no validation logic changed
 

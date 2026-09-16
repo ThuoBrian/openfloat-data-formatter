@@ -79,8 +79,9 @@ SAMPLE_ROWS = [
 ]
 
 INSTRUCTIONS = [
-    ("unique_id", "Optional. Any identifier; written verbatim to the output "
-     "'Account Name' column."),
+    ("unique_id", "The row's Respondent ID, Staff ID, Case ID or Reso ID — "
+     "written verbatim to the output 'Account Name' column, which is how the "
+     "payment is identified in OpenFloat. A blank value is kept but warned about."),
     (
         "airtime_phone",
         "Required. Kenyan phone number. Digits only after cleanup; a leading "
@@ -111,8 +112,9 @@ INSTRUCTIONS = [
         "case_remark",
         "Optional but recommended. Fixed format: "
         "'C#<case_number> <project_code> RESP AIRTIME-KSH<amount> <activity_code>', "
-        "e.g. 'C#37166 22505AA RESP AIRTIME-KSH29400 d05'. Reformatted automatically to "
-        "'Case #<case_number> | <project_code> | RESP | AIRTIME KSH <amount> | <activity_code>'. "
+        "e.g. 'C#37166 22505AA RESP AIRTIME-KSH29400 d05'. Written to the output 'Remark' "
+        "column in that same format (spacing normalized), which is how it comes back on the "
+        "OpenFloat Transaction Statement. "
         "If left blank, the Remark falls back to '{project_name} - {Project_Activity}'. "
         "The embedded amount is cross-checked against the row's real amount column "
         "(mismatch is a soft warning only).",
