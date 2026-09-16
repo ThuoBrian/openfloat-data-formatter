@@ -10,6 +10,7 @@ from datetime import datetime
 import pandas as pd
 import pytest
 
+from helpers import GOOD_DATE, statement_row
 from openfloat_formatter.statement import (
     build_statement_report,
     is_successful_status,
@@ -19,35 +20,6 @@ from openfloat_formatter.statement import (
     rollup_by_case,
     summarize_transactions,
 )
-
-GOOD_DATE = "24/08/2026 02:56:42 PM"
-GOOD_REMARK = "C#37154 13054AF RESP AIRTIME-KSH27900 d05"
-
-
-def _txn(
-    status="Successful",
-    phone=254712345678,
-    amount=100,
-    remark=GOOD_REMARK,
-    **overrides,
-):
-    """A default statement data row; keyword args override any header column."""
-    row = {
-        "Approval Id": 14886185,
-        "Transaction Id": 18488654,
-        "Transaction Type": "Payment",
-        "Transaction Status": status,
-        "Date": GOOD_DATE,
-        "Account Name": 9019830,
-        "Account Number": phone,
-        "Account Type": "Partner",
-        "Remark": remark,
-        "Initiated By": "Test User",
-        "Approved/Rejected By": "Test Approver",
-        "Amount": amount,
-    }
-    row.update(overrides)
-    return row
 
 
 class TestParseStatementDate:
@@ -104,7 +76,7 @@ class TestParseStatementFile:
     def test_parses_basic_successful_rows(self, make_statement_workbook):
         """Successful rows parse with amounts, normalized phones, parsed remarks."""
         buffer = make_statement_workbook(
-            rows=[_txn(), _txn(phone=254798765432, amount=200)],
+            rows=[statement_row(), statement_row(phone=254798765432, amount=200)],
             footer_total=300,
         )
         transactions, _footer_total, _warnings, errors = parse_statement_file(buffer)
@@ -121,7 +93,7 @@ class TestParseStatementFile:
 
     def test_header_without_reference_id(self, make_statement_workbook):
         """12-column exports (no 'Reference Id') parse; reference_id stays empty."""
-        buffer = make_statement_workbook(rows=[_txn()], include_reference_id=False)
+        buffer = make_statement_workbook(rows=[statement_row()], include_reference_id=False)
         transactions, _, _warnings, errors = parse_statement_file(buffer)
         assert errors == []
         assert transactions[0].reference_id == ""
@@ -129,7 +101,7 @@ class TestParseStatementFile:
     def test_header_with_reference_id_on_reversed_row(self, make_statement_workbook):
         """13-column exports capture the Reference Id on Reversed rows."""
         buffer = make_statement_workbook(
-            rows=[_txn(status="Reversed", amount=None, **{"Reference Id": 18492036})]
+            rows=[statement_row(status="Reversed", amount=None, **{"Reference Id": 18492036})]
         )
         transactions, _, _warnings, errors = parse_statement_file(buffer)
         assert errors == []
@@ -138,7 +110,7 @@ class TestParseStatementFile:
 
     def test_footer_row_captured_not_counted(self, make_statement_workbook):
         """The grand-total footer row becomes footer_total, not a transaction."""
-        buffer = make_statement_workbook(rows=[_txn()], footer_total=100)
+        buffer = make_statement_workbook(rows=[statement_row()], footer_total=100)
         transactions, footer_total, _warnings, errors = parse_statement_file(buffer)
         assert errors == []
         assert len(transactions) == 1
@@ -148,7 +120,7 @@ class TestParseStatementFile:
         """Fully blank rows in the middle of the sheet are skipped."""
         from openpyxl import load_workbook
 
-        buffer = make_statement_workbook(rows=[_txn()], footer_total=100)
+        buffer = make_statement_workbook(rows=[statement_row()], footer_total=100)
         # Insert a fully blank row after the first data row
         workbook = load_workbook(buffer)
         workbook["Transaction Statement"].append([None] * 12)
@@ -163,7 +135,10 @@ class TestParseStatementFile:
     def test_reversed_row_is_none_amount_and_unsuccessful(self, make_statement_workbook):
         """Reversed rows keep amount=None and classify as unsuccessful."""
         buffer = make_statement_workbook(
-            rows=[_txn(), _txn(status="Reversed", amount=None, phone=254722345678)]
+            rows=[
+                statement_row(),
+                statement_row(status="Reversed", amount=None, phone=254722345678),
+            ]
         )
         transactions, _, _warnings, errors = parse_statement_file(buffer)
         assert errors == []
@@ -173,14 +148,14 @@ class TestParseStatementFile:
 
     def test_account_name_string_variant(self, make_statement_workbook):
         """String account ids like 'I220008' are kept verbatim."""
-        buffer = make_statement_workbook(rows=[_txn(**{"Account Name": "I220008"})])
+        buffer = make_statement_workbook(rows=[statement_row(**{"Account Name": "I220008"})])
         transactions, _, _warnings, errors = parse_statement_file(buffer)
         assert errors == []
         assert transactions[0].account_name == "I220008"
 
     def test_unknown_status_counted_not_crash(self, make_statement_workbook):
         """Unknown statuses classify as unsuccessful without raising."""
-        buffer = make_statement_workbook(rows=[_txn(status="Failed", amount=None)])
+        buffer = make_statement_workbook(rows=[statement_row(status="Failed", amount=None)])
         transactions, _, _warnings, errors = parse_statement_file(buffer)
         assert errors == []
         assert transactions[0].status == "Failed"
@@ -218,7 +193,7 @@ class TestParseStatementFile:
 
     def test_bad_date_soft_warning_date_raw_kept(self, make_statement_workbook):
         """An unparseable date warns and keeps the raw cell text."""
-        buffer = make_statement_workbook(rows=[_txn(Date="not a date")])
+        buffer = make_statement_workbook(rows=[statement_row(Date="not a date")])
         transactions, _, warnings, errors = parse_statement_file(buffer)
         assert errors == []
         assert transactions[0].date is None
@@ -227,7 +202,7 @@ class TestParseStatementFile:
 
     def test_unparseable_remark_soft_warning(self, make_statement_workbook):
         """A remark that doesn't match the case format warns; remark text is kept."""
-        buffer = make_statement_workbook(rows=[_txn(remark="garbage")])
+        buffer = make_statement_workbook(rows=[statement_row(remark="garbage")])
         transactions, _, warnings, errors = parse_statement_file(buffer)
         assert errors == []
         assert transactions[0].remark_parts is None
@@ -236,7 +211,7 @@ class TestParseStatementFile:
 
     def test_unnormalizable_account_number_warning_raw_kept(self, make_statement_workbook):
         """A non-9-digit account number warns and keeps the raw value."""
-        buffer = make_statement_workbook(rows=[_txn(**{"Account Number": 12345})])
+        buffer = make_statement_workbook(rows=[statement_row(**{"Account Number": 12345})])
         transactions, _, warnings, errors = parse_statement_file(buffer)
         assert errors == []
         assert transactions[0].account_number == "12345"
@@ -245,7 +220,7 @@ class TestParseStatementFile:
 
     def test_local_phone_input_normalizes_to_statement_key(self, make_statement_workbook):
         """An Account Number stored with local prefix still normalizes to 254XXXXXXXXX."""
-        buffer = make_statement_workbook(rows=[_txn(**{"Account Number": "0712345678"})])
+        buffer = make_statement_workbook(rows=[statement_row(**{"Account Number": "0712345678"})])
         transactions, _, _warnings, _errors = parse_statement_file(buffer)
         assert transactions[0].account_number == "254712345678"
 
@@ -256,10 +231,10 @@ class TestSummarize:
     def _transactions(self, make_statement_workbook):
         buffer = make_statement_workbook(
             rows=[
-                _txn(amount=100),
-                _txn(phone=254798765432, amount=200),
-                _txn(status="Reversed", amount=None, phone=254722345678),
-                _txn(status="Failed", amount=None, phone=254732345678),
+                statement_row(amount=100),
+                statement_row(phone=254798765432, amount=200),
+                statement_row(status="Reversed", amount=None, phone=254722345678),
+                statement_row(status="Failed", amount=None, phone=254732345678),
             ]
         )
         transactions, _, _, errors = parse_statement_file(buffer)
@@ -316,7 +291,7 @@ class TestCaseRollup:
 
     def test_groups_by_case(self, make_statement_workbook):
         """Rows for the same case group into one rollup."""
-        buffer = make_statement_workbook(rows=[_txn(), _txn(phone=254798765432)])
+        buffer = make_statement_workbook(rows=[statement_row(), statement_row(phone=254798765432)])
         transactions, _, _, _ = parse_statement_file(buffer)
         rollups, unparsed = rollup_by_case(transactions)
         assert unparsed == 0
@@ -329,7 +304,7 @@ class TestCaseRollup:
     def test_difference_vs_remark_amount(self, make_statement_workbook):
         """difference = disbursed_total - remark_amount (the shortfall flag)."""
         buffer = make_statement_workbook(
-            rows=[_txn(amount=100), _txn(phone=254798765432, amount=200)]
+            rows=[statement_row(amount=100), statement_row(phone=254798765432, amount=200)]
         )
         transactions, _, _, _ = parse_statement_file(buffer)
         rollups, _ = rollup_by_case(transactions)
@@ -339,7 +314,10 @@ class TestCaseRollup:
         """A short 'C# 38305' remark still groups and totals; there is just nothing
         to compare the disbursed figure against."""
         buffer = make_statement_workbook(
-            rows=[_txn(remark="C# 38305"), _txn(phone=254798765432, remark="C#38305")]
+            rows=[
+                statement_row(remark="C# 38305"),
+                statement_row(phone=254798765432, remark="C#38305"),
+            ]
         )
         transactions, _, _, _ = parse_statement_file(buffer)
         rollups, unparsed = rollup_by_case(transactions)
@@ -356,8 +334,8 @@ class TestCaseRollup:
         """Distinct cases produce distinct rollups, sorted by case number."""
         buffer = make_statement_workbook(
             rows=[
-                _txn(remark="C#37200 13054AF RESP AIRTIME-KSH100 d05"),
-                _txn(remark="C#37154 13054AF RESP AIRTIME-KSH100 d05"),
+                statement_row(remark="C#37200 13054AF RESP AIRTIME-KSH100 d05"),
+                statement_row(remark="C#37154 13054AF RESP AIRTIME-KSH100 d05"),
             ]
         )
         transactions, _, _, _ = parse_statement_file(buffer)
@@ -367,7 +345,7 @@ class TestCaseRollup:
     def test_unparsed_remarks_excluded_and_counted(self, make_statement_workbook):
         """Rows with unparseable remarks are excluded and counted as unparsed."""
         buffer = make_statement_workbook(
-            rows=[_txn(), _txn(remark="garbage")]
+            rows=[statement_row(), statement_row(remark="garbage")]
         )
         transactions, _, _, _ = parse_statement_file(buffer)
         rollups, unparsed = rollup_by_case(transactions)
@@ -381,10 +359,10 @@ class TestBuildStatementReport:
     def test_multiple_files_combined(self, make_statement_workbook):
         """Totals combine across files; per-file summaries stay separate."""
         file_a = make_statement_workbook(
-            rows=[_txn(amount=100)], footer_total=100, include_reference_id=True
+            rows=[statement_row(amount=100)], footer_total=100, include_reference_id=True
         )
         file_b = make_statement_workbook(
-            rows=[_txn(phone=254798765432, amount=200)],
+            rows=[statement_row(phone=254798765432, amount=200)],
             footer_total=200,
             include_reference_id=False,
         )
@@ -400,7 +378,7 @@ class TestBuildStatementReport:
 
     def test_one_bad_file_does_not_kill_others(self, make_statement_workbook):
         """A file with a structural error still lets the good file report."""
-        good = make_statement_workbook(rows=[_txn()], footer_total=100)
+        good = make_statement_workbook(rows=[statement_row()], footer_total=100)
         bad = make_statement_workbook(rows=[], sheet_name="Wrong Sheet")
         report = build_statement_report([good, bad], source_names=["good.xlsx", "bad.xlsx"])
         assert len(report.errors) == 1
@@ -433,11 +411,11 @@ class TestReconcile:
         """
         buffer = make_statement_workbook(
             rows=[
-                _txn(phone=254712345678, amount=100),
-                _txn(phone=254722345678, status="Reversed", amount=None),
-                _txn(phone=254742345678, amount=50),
-                _txn(phone=254752345678, amount=100),
-                _txn(phone=254752345678, amount=100, **{"Transaction Id": 999}),
+                statement_row(phone=254712345678, amount=100),
+                statement_row(phone=254722345678, status="Reversed", amount=None),
+                statement_row(phone=254742345678, amount=50),
+                statement_row(phone=254752345678, amount=100),
+                statement_row(phone=254752345678, amount=100, **{"Transaction Id": 999}),
             ]
         )
         transactions, _, _, errors = parse_statement_file(buffer)
@@ -529,7 +507,7 @@ class TestReconcile:
         012345678 (9 digits, leading zero kept per the normalizer's edge case).
         """
         buffer = make_statement_workbook(
-            rows=[_txn(phone=254012345678, amount=100)]
+            rows=[statement_row(phone=254012345678, amount=100)]
         )
         transactions, _, _, errors = parse_statement_file(buffer)
         assert errors == []

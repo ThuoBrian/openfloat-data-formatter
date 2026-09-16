@@ -120,6 +120,20 @@ def _activity_code(row: pd.Series) -> str:
     return read_text_cell(row.get(ACTIVITY_COLUMN, "")).split("|", 1)[0].strip()
 
 
+def count_short_form_rows(df: pd.DataFrame) -> int:
+    """How many rows carry a short `C#<case_number>` reference awaiting completion.
+
+    Shared with the app's project-code prompt so the count it shows and the
+    warning `validate()` raises can never disagree about what "short" means.
+    """
+    return sum(
+        1
+        for _index, row in df.iterrows()
+        if (parts := resolve_case_remark(row.get("case_remark", ""))[1]) is not None
+        and parts.amount is None
+    )
+
+
 def build_remark_context(
     df: pd.DataFrame,
     config: Settings,
@@ -137,12 +151,7 @@ def build_remark_context(
     fallback = (config.project_code or "").strip()
 
     warnings: list[str] = []
-    short_form_rows = sum(
-        1
-        for _index, row in df.iterrows()
-        if (parts := resolve_case_remark(row.get("case_remark", ""))[1]) is not None
-        and parts.amount is None
-    )
+    short_form_rows = count_short_form_rows(df)
     if short_form_rows and fallback and not _is_usable_code(fallback):
         # Whatever the rows say, one bad configured code is one problem.
         warnings.append(

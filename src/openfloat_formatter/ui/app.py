@@ -25,12 +25,15 @@ from openfloat_formatter.normalizer import (
     find_account_name_column,
     parse_case_remark,
     read_text_cell,
-    resolve_case_remark,
 )
-from openfloat_formatter.remark import build_remark, find_project_code_column
+from openfloat_formatter.remark import (
+    build_remark,
+    count_short_form_rows,
+    find_project_code_column,
+)
 from openfloat_formatter.statement import build_statement_report
 from openfloat_formatter.transformer import transform
-from openfloat_formatter.validator import validate
+from openfloat_formatter.validator import remark_context, validate
 from openfloat_formatter.writer import write_finance_workbook, write_statement_workbook
 
 
@@ -108,8 +111,6 @@ def _preview_remark(df: pd.DataFrame, config: Settings) -> None:
     """Show the Remark the first row will actually get, before anything downloads."""
     if df.empty:
         return
-    from openfloat_formatter.validator import remark_context
-
     result = build_remark(df.iloc[0], remark_context(df, config))
     if not result.remark:
         return
@@ -127,12 +128,7 @@ def _select_project_code(df: pd.DataFrame) -> str | None:
     `C#<case> <project_code> RESP AIRTIME-KSH<total> <activity>` Remark. A
     project-code column in the file wins per row; this is the fallback.
     """
-    short_form_rows = sum(
-        1
-        for _index, row in df.iterrows()
-        if (parts := resolve_case_remark(row.get("case_remark", ""))[1]) is not None
-        and parts.amount is None
-    )
+    short_form_rows = count_short_form_rows(df)
     column = find_project_code_column(df.columns)
     if not short_form_rows and column is None:
         return None  # nothing to complete and nowhere to put it

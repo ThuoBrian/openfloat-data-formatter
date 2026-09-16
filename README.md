@@ -54,9 +54,11 @@ format rules.
 
 ### Limitations
 
-- Expects Process Maker's specific column layout (see
-  `processmaker-input-template.xlsx`) — a differently-shaped export will fail
-  validation instead of being silently guessed at.
+- Needs the core Process Maker columns — `airtime_phone`, `network`, `amount`
+  (see `processmaker-input-template.xlsx`); a row missing one is reported as an
+  error rather than guessed at. The identifier column is the exception: it is
+  detected whatever your export calls it (`Staff ID`, `Respondent ID`, `respo`,
+  `Beneficiary Ref`), and you can override the choice in the app.
 - Phone normalization assumes Kenyan numbers (9 local digits, `254` country
   code); other country formats are rejected as invalid.
 - Network → Account Type mapping is a fixed, case-sensitive lookup (see
@@ -98,10 +100,15 @@ with interactive docs at `http://localhost:8000/docs`:
 
 | Endpoint | Method | Purpose |
 |---|---|---|
-| `/transform` | POST | Upload a Process Maker export, get the OpenFloat-ready file + validation report |
+| `/transform` | POST | Upload a Process Maker export, get the OpenFloat-ready `.xlsx` back (422 if every row was filtered out) |
 | `/validate` | POST | Validation report only — no output file |
 | `/statement-report` | POST | Analyze OpenFloat Transaction Statement file(s), optionally reconciled against the original input |
 | `/health` | GET | Confirms the server is running |
+
+`/transform` and `/validate` also accept two optional form fields:
+`account_name_column` (which input column becomes `Account Name` — detected
+from the headers when omitted) and `project_code` (completes a short
+`C#<case>` reference into the full Remark).
 
 ### Configuration
 
@@ -115,6 +122,7 @@ to `.env` and edit, or set the environment variable directly:
 | `PROJECT_CODE` | *(unset)* | Project code used to complete a short `C#<case>` reference into the full Remark. A `project_code` column in the upload wins per row; the Transform page also has a box for it |
 | `ACCOUNT_NAME_COLUMN` | *(detected)* | Input column used for the output `Account Name`. Left unset, the app detects it from the headers; the Transform page also lets you pick it per upload |
 | `OPENFLOAT_TEMPLATE_PATH` | `docs/openfloat-transactions-template.xlsx` | Path to the OpenFloat template, relative to the project's top-level folder |
+| `NETWORK_MAP` | the five networks below | Network → Account Type lookup. Overriding it needs a full JSON object (`'{"Safaricom":"Safaricom Prepaid"}'`), and malformed JSON fails at startup — edit `config.py` instead unless you have a reason |
 
 See `src/openfloat_formatter/config.py` for the full `Settings` model.
 

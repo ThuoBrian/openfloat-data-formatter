@@ -30,6 +30,11 @@ uv run mypy             # type-check src + tests (CI enforces)
   requirements.txt).
 - `sample_report_output/` contains real personal data — never `git add -f`
   it and never reference it from tests.
-- `docs/*.xlsx` are force-added past `.gitignore` — use `git add -f` for them.
+- Exactly two files in `docs/` are tracked, force-added past `.gitignore`:
+  `openfloat-transactions-template.xlsx` and `processmaker-input-template.xlsx`.
+  **Any other spreadsheet in `docs/` is real data** — a staff airtime export
+  dropped there for manual testing carries names, staff IDs and phone numbers.
+  Leave it untracked, never `git add -f` it, never read it into a terminal, and
+  never reference it from tests.
 - Check `docs/GOTCHA.md` before debugging surprising pandas/openpyxl behavior.
 - Update `CLAUDE.md` when domain rules, architecture, or commands change.

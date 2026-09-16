@@ -109,6 +109,15 @@ def _sanitize_cell_value(value: object) -> object:
     return value
 
 
+def _to_buffer(workbook: openpyxl.Workbook) -> BytesIO:
+    """Save a workbook to an in-memory buffer, positioned for reading."""
+    buffer = BytesIO()
+    workbook.save(buffer)
+    buffer.seek(0)
+    workbook.close()
+    return buffer
+
+
 def load_allowed_types(template_path: str | Path) -> list[str]:
     """Load the Allowed Types list from the OpenFloat reference template.
 
@@ -217,12 +226,7 @@ def write_openfloat_excel(
         wb.save(str(output_path))
         wb.close()
         return output_path
-    else:
-        buffer = BytesIO()
-        wb.save(buffer)
-        buffer.seek(0)
-        wb.close()
-        return buffer
+    return _to_buffer(wb)
 
 
 def _column_total(rows: Sequence[Sequence[object]], index: int) -> float:
@@ -384,11 +388,7 @@ def write_statement_workbook(report: StatementReport) -> BytesIO:
                 phone_columns=("Phone",),
             )
 
-    buffer = BytesIO()
-    workbook.save(buffer)
-    buffer.seek(0)
-    workbook.close()
-    return buffer
+    return _to_buffer(workbook)
 
 
 def _case_reference(transaction: StatementTransaction) -> str:
@@ -447,9 +447,4 @@ def write_finance_workbook(report: StatementReport) -> BytesIO:
         phone_columns=("Phone",),
         flag_row=lambda row: row[debit_index] is None,
     )
-
-    buffer = BytesIO()
-    workbook.save(buffer)
-    buffer.seek(0)
-    workbook.close()
-    return buffer
+    return _to_buffer(workbook)
