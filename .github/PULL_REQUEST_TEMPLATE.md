@@ -15,7 +15,7 @@
 
 ## Domain rules touched
 
-<!-- Check any that this PR affects, so reviewers know which CLAUDE.md rules to double-check. -->
+<!-- Check any that this PR affects, so reviewers know which AGENTS.md rules to double-check. -->
 
 - [ ] Phone normalization
 - [ ] `unique_id` / Account Name
@@ -54,5 +54,5 @@ UI, sample file used.) -->
 ## Checklist
 
 - [ ] Free-text values written to output (Remark, Account Name) are sanitized against formula injection, if applicable
-- [ ] `CLAUDE.md` updated if domain rules, architecture, or commands changed
+- [ ] `AGENTS.md` updated if domain rules, architecture, or commands changed
 - [ ] No real PII (phone numbers, names) added to tracked files or pasted into commit messages/PR description — see IPA AI/data classification guidelines
