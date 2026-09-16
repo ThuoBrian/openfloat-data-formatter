@@ -18,7 +18,13 @@ import pandas as pd
 import streamlit as st
 
 from openfloat_formatter.config import DEFAULT_TEMPLATE_PATH, Settings
-from openfloat_formatter.normalizer import find_account_name_column, resolve_unique_id
+from openfloat_formatter.normalizer import (
+    find_account_name_column,
+    parse_case_remark,
+    read_text_cell,
+    resolve_case_remark,
+)
+from openfloat_formatter.remark import build_remark, find_project_code_column
 from openfloat_formatter.statement import build_statement_report
 from openfloat_formatter.transformer import transform
 from openfloat_formatter.validator import validate
@@ -84,7 +90,7 @@ def _select_identifier_column(df: pd.DataFrame) -> str | None:
             )
         return None
 
-    filled = [resolve_unique_id(cell) for cell in df[choice]]
+    filled = [read_text_cell(cell) for cell in df[choice]]
     non_empty = [value for value in filled if value]
     sample = ", ".join(non_empty[:3])
     st.caption(
@@ -92,6 +98,66 @@ def _select_identifier_column(df: pd.DataFrame) -> str | None:
         f"value{f' (e.g. {sample})' if sample else ''}"
     )
     return choice
+
+
+def _preview_remark(df: pd.DataFrame, config: Settings) -> None:
+    """Show the Remark the first row will actually get, before anything downloads."""
+    if df.empty:
+        return
+    from openfloat_formatter.validator import remark_context
+
+    result = build_remark(df.iloc[0], remark_context(df, config))
+    if not result.remark:
+        return
+    readable = parse_case_remark(result.remark)[1] is None
+    st.caption(
+        f"Remark preview (row 1): `{result.remark}`"
+        + ("" if readable else " — not a case reference the statement report can read")
+    )
+
+
+def _select_project_code(df: pd.DataFrame) -> str | None:
+    """Show the project-code input and return what the user typed (or None).
+
+    The code completes a short `C# 38305` case reference into the full
+    `C#<case> <project_code> RESP AIRTIME-KSH<total> <activity>` Remark. A
+    project-code column in the file wins per row; this is the fallback.
+    """
+    short_form_rows = sum(
+        1
+        for _index, row in df.iterrows()
+        if (parts := resolve_case_remark(row.get("case_remark", ""))[1]) is not None
+        and parts.amount is None
+    )
+    column = find_project_code_column(df.columns)
+    if not short_form_rows and column is None:
+        return None  # nothing to complete and nowhere to put it
+
+    st.header("Project Code")
+    typed = st.text_input(
+        "Project code for the case reference",
+        value="",
+        placeholder="e.g. 22505AA",
+        help="Used to complete a short 'C# 38305' reference into the full Remark. "
+        "A project_code column in the file takes precedence, row by row.",
+    ).strip()
+
+    if column is not None:
+        st.caption(
+            f"This file has a **{column}** column — it is used per row, and this box only "
+            f"fills rows where it is blank."
+        )
+    if typed and " " in typed:
+        st.warning(
+            "A project code cannot contain spaces — the case reference would not be "
+            "readable, so those rows would keep a short Remark."
+        )
+    elif short_form_rows and not typed and column is None:
+        st.warning(
+            f"{short_form_rows} row(s) carry a short case reference. Without a project code "
+            f"their Remark stays short (e.g. `C#38305`)."
+        )
+    return typed or None
 
 
 def render_transform_page(country_prefix: str):
@@ -140,14 +206,18 @@ def render_transform_page(country_prefix: str):
     # its options, so uploading a different file resets the choice instead of
     # carrying a stale column over.
     id_column = _select_identifier_column(df)
+    project_code = _select_project_code(df)
 
     # --- Configuration ---
     config = Settings(
         max_amount_threshold=amount_threshold,
         default_country_prefix=country_prefix,
         account_name_column=id_column,
+        project_code=project_code,
         openfloat_template_path=str(DEFAULT_TEMPLATE_PATH),
     )
+
+    _preview_remark(df, config)
 
     # --- Validate ---
     st.header("Validation Report")

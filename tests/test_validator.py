@@ -163,6 +163,41 @@ class TestValidatorCaseRemark:
         report = validate(minimal_df, default_config)
         assert [w for w in report.warnings if w.field == "case_remark"] == []
 
+    def test_no_project_code_warns_once_for_the_file(self, case_df, default_config):
+        """28 identical per-row warnings would bury the report — say it once."""
+        report = validate(case_df, default_config)
+        code_warnings = [w for w in report.warnings if w.field == "project_code"]
+        assert len(code_warnings) == 1
+        assert code_warnings[0].row_number == 1
+        assert [w for w in report.warnings if w.field == "case_remark"] == []
+
+    def test_composed_remark_is_quiet(self, case_df, default_config):
+        config = default_config.model_copy(update={"project_code": "22505AA"})
+        report = validate(case_df, config)
+        assert [w for w in report.warnings if w.field in {"case_remark", "project_code"}] == []
+
+    def test_unusable_project_code_warns_once(self, case_df, default_config):
+        """A configured code that cannot be used is one problem, reported once."""
+        config = default_config.model_copy(update={"project_code": "AGRA Project"})
+        report = validate(case_df, config)
+        code_warnings = [w for w in report.warnings if w.field == "project_code"]
+        assert len(code_warnings) == 1
+        assert code_warnings[0].row_number == 1
+        assert report.valid_rows == 2
+
+    def test_full_form_amount_matching_case_total_no_warning(self, minimal_df, default_config):
+        """Two rows of one case each carrying the case total is correct, not a mismatch.
+
+        Regression: the cross-check compared the embedded amount against the
+        row's own amount, so a correctly-typed multi-row case warned on every row.
+        """
+        minimal_df["case_remark"] = [
+            "C#38305 22505AA RESP AIRTIME-KSH350 g05",
+            "C#38305 22505AA RESP AIRTIME-KSH350 g05",
+        ]
+        report = validate(minimal_df, default_config)
+        assert [w for w in report.warnings if w.field == "case_remark"] == []
+
     def test_well_formed_case_remark_no_warning(self, minimal_df, default_config):
         """A well-formed case_remark whose amount matches the Amount column produces no warning."""
         # minimal_df's amount column is [150, 200] — the embedded amounts must match.

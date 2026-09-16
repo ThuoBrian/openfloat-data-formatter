@@ -21,9 +21,10 @@ from .normalizer import (
     find_account_name_column,
     normalize_amount,
     normalize_phone,
+    read_text_cell,
     resolve_case_remark,
-    resolve_unique_id,
 )
+from .remark import RemarkContext, build_remark, build_remark_context
 
 
 def check_hard_errors(row: pd.Series, config: Settings) -> list[tuple[str, str]]:
@@ -51,6 +52,17 @@ def check_hard_errors(row: pd.Series, config: Settings) -> list[tuple[str, str]]
         failures.append(("network", network_error))
 
     return failures
+
+
+def remark_context(df: pd.DataFrame, config: Settings) -> RemarkContext:
+    """Build the Remark context over the rows that will reach the output.
+
+    Lives here so `validate()` and `transformer._build_output_rows()` cannot
+    disagree about which rows count toward a case total — the same reason they
+    already share `check_hard_errors` for row exclusion itself.
+    """
+    eligible = (row for _index, row in df.iterrows() if not check_hard_errors(row, config))
+    return build_remark_context(df, config, eligible)
 
 
 # Maps a check_hard_errors() field name to its FilteredCounts attribute.
@@ -109,6 +121,16 @@ def validate(
                 ),
             )
         )
+    remarks = remark_context(df, config)
+    for file_warning in remarks.file_warnings:
+        warnings.append(
+            ValidationIssue(
+                row_number=1,
+                severity=IssueSeverity.WARNING,
+                field="project_code",
+                message=file_warning,
+            )
+        )
     no_id_message = (
         f"no identifier column found — Account Name will be blank. "
         f"Columns in this file: {', '.join(str(c) for c in df.columns)}. "
@@ -156,7 +178,7 @@ def validate(
         # --- Account Name source (soft warning; the upload should stay traceable) ---
         if id_column is None:
             id_message = no_id_message
-        elif not resolve_unique_id(row.get(id_column, "")):
+        elif not read_text_cell(row.get(id_column, "")):
             id_message = f"'{id_column}' is empty — Account Name will be blank"
         else:
             id_message = ""
@@ -170,37 +192,32 @@ def validate(
                 )
             )
 
-        # --- case_remark format check (soft warning, falls back to raw text) ---
-        case_remark_raw, case_remark_parts, case_remark_error = resolve_case_remark(
+        # --- case_remark parse check (soft warning, falls back to raw text) ---
+        case_remark_raw, _parts, case_remark_error = resolve_case_remark(
             row.get("case_remark", "")
         )
-        if case_remark_raw:
-            if case_remark_error is not None:
-                warnings.append(
-                    ValidationIssue(
-                        row_number=row_num,
-                        severity=IssueSeverity.WARNING,
-                        field="case_remark",
-                        message=f"Row {row_num}: {case_remark_error} — using raw text as Remark",
-                    )
+        if case_remark_raw and case_remark_error is not None:
+            warnings.append(
+                ValidationIssue(
+                    row_number=row_num,
+                    severity=IssueSeverity.WARNING,
+                    field="case_remark",
+                    message=f"Row {row_num}: {case_remark_error} — using raw text as Remark",
                 )
-            elif (
-                amount_error is None
-                and case_remark_parts is not None
-                and case_remark_parts.amount is not None
-                and float(case_remark_parts.amount) != amount_value
-            ):
-                warnings.append(
-                    ValidationIssue(
-                        row_number=row_num,
-                        severity=IssueSeverity.WARNING,
-                        field="case_remark",
-                        message=(
-                            f"Row {row_num}: case_remark amount (KSH {case_remark_parts.amount}) "
-                            f"does not match the Amount column ({amount_value})"
-                        ),
-                    )
+            )
+
+        # --- Remark composition (soft; the row still ships, with a short Remark) ---
+        # Same call the transformer makes, so this warns about exactly what gets written.
+        remark_result = build_remark(row, remarks)
+        if remark_result.warning is not None:
+            warnings.append(
+                ValidationIssue(
+                    row_number=row_num,
+                    severity=IssueSeverity.WARNING,
+                    field=remark_result.field,
+                    message=f"Row {row_num}: {remark_result.warning}",
                 )
+            )
 
         # Collect row errors
         for err in row_errors:

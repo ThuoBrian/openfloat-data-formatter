@@ -219,17 +219,17 @@ def resolve_case_remark(cell: Any) -> tuple[str, CaseRemarkParts | None, str | N
     return raw, parts, error
 
 
-def resolve_unique_id(cell: Any) -> str:
-    """Read a single identifier cell, guarding against pandas NaN.
+def read_text_cell(cell: Any) -> str:
+    """Read a text cell from an input row, guarding against pandas NaN.
 
-    Centralizes the NaN-guard so every caller reads the cell the same way —
-    str(NaN) would otherwise write the literal string "nan" into Account Name.
+    Centralizes the NaN-guard so every caller reads cells the same way —
+    str(NaN) would otherwise write the literal string "nan" into the output.
 
     Args:
-        cell: A raw identifier cell value.
+        cell: A raw cell value.
 
     Returns:
-        The trimmed identifier, or "" when the cell is empty/absent.
+        The trimmed text, or "" when the cell is empty/absent.
     """
     return "" if pd.isna(cell) else str(cell).strip()
 
@@ -318,7 +318,7 @@ def find_account_name_column(
     # Staff ID for every row, rather than blanking the whole column.
     if frame is not None:
         for name in ranked:
-            if any(resolve_unique_id(cell) for cell in frame[name]):
+            if any(read_text_cell(cell) for cell in frame[name]):
                 return str(name)
     return str(ranked[0])
 

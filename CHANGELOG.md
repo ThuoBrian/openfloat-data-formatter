@@ -18,6 +18,16 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- A short `C#<case_number>` reference is now **composed into the full Remark**
+  — `C#38305 22505AA RESP AIRTIME-KSH28000 g06` — using a `project_code`
+  column (or the new `PROJECT_CODE` setting / Project Code box in the app), the
+  activity code from `Project_Activity`, and the case's total across the upload.
+  A reference typed in full is never rewritten, and a reference that cannot be
+  read back is never written: the Remark stays short with a warning instead.
+- **Fixed:** the `case_remark` amount cross-check compared the embedded amount
+  against the row's own amount, but that amount is the per-case total — a
+  correctly-typed reference on a multi-row case warned on every row. It now
+  compares against the case total across the file.
 - `case_remark` now also accepts the short `C#<case_number>` form (e.g.
   `C# 38305`), with an optional space after `C#` in both forms. It previously
   failed to parse, which meant a soft warning on every row and a Remark that

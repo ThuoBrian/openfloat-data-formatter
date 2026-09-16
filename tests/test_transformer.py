@@ -121,6 +121,30 @@ class TestBuildOutputRows:
         rows, _ = _build_output_rows(minimal_df, default_config)
         assert rows[0].remark == "Test Project - g05|Testing"
 
+    def test_short_remark_composed_with_case_total(self, case_df, default_config):
+        """Both rows carry the case total (350), not their own 150/200."""
+        config = default_config.model_copy(update={"project_code": "22505AA"})
+        rows, _ = _build_output_rows(case_df, config)
+        assert [row.remark for row in rows] == [
+            "C#38305 22505AA RESP AIRTIME-KSH350 g05",
+            "C#38305 22505AA RESP AIRTIME-KSH350 g05",
+        ]
+        assert parse_case_remark(rows[0].remark)[1] is None
+
+    def test_excluded_row_does_not_inflate_the_case_total(self, case_df, default_config):
+        """A row dropped for a bad phone is not money OpenFloat is asked to send."""
+        config = default_config.model_copy(update={"project_code": "22505AA"})
+        case_df.loc[0, "airtime_phone"] = "123"  # hard error: excluded from output
+        rows, _ = _build_output_rows(case_df, config)
+        assert len(rows) == 1
+        assert rows[0].remark == "C#38305 22505AA RESP AIRTIME-KSH200 g05"
+
+    def test_project_code_column_wins(self, case_df, default_config):
+        config = default_config.model_copy(update={"project_code": "22505AA"})
+        case_df["project_code"] = ["22601BB", "22601BB"]
+        rows, _ = _build_output_rows(case_df, config)
+        assert rows[0].remark == "C#38305 22601BB RESP AIRTIME-KSH350 g05"
+
     def test_remark_from_short_case_remark(self, minimal_df, default_config):
         """A short 'C# 38305' is canonicalized to 'C#38305', not dumped as raw text."""
         minimal_df["case_remark"] = ["C# 38305", ""]

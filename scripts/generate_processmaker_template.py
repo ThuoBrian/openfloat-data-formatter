@@ -26,10 +26,11 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 OUTPUT_PATH = PROJECT_ROOT / "docs" / "processmaker-input-template.xlsx"
 
-# The 12th column: optional, not part of PROCESSMAKER_COLUMNS, but read by
-# the transformer when present.
+# Trailing optional columns: not part of PROCESSMAKER_COLUMNS, but read by the
+# transformer when present.
 CASE_REMARK_COLUMN = "case_remark"
-TEMPLATE_COLUMNS = [*PROCESSMAKER_COLUMNS, CASE_REMARK_COLUMN]
+PROJECT_CODE_COLUMN = "project_code"
+TEMPLATE_COLUMNS = [*PROCESSMAKER_COLUMNS, CASE_REMARK_COLUMN, PROJECT_CODE_COLUMN]
 
 NETWORK_CHOICES = list(DEFAULT_NETWORK_MAP.keys())
 
@@ -47,6 +48,7 @@ SAMPLE_ROWS = [
         "department": "Projects",
         "survey": "Baseline",
         "case_remark": "C#37166 22505AA RESP AIRTIME-KSH150 d05",
+        "project_code": "22505AA",
     },
     {
         "unique_id": "TEST002",
@@ -60,6 +62,7 @@ SAMPLE_ROWS = [
         "department": "Projects",
         "survey": "Baseline",
         "case_remark": "C#37167 22505AA RESP AIRTIME-KSH200 d05",
+        "project_code": "22505AA",
     },
     {
         "unique_id": "TEST003",
@@ -75,6 +78,7 @@ SAMPLE_ROWS = [
         # case_remark left blank on purpose -> demonstrates the legacy
         # "{project_name} - {Project_Activity}" fallback.
         "case_remark": "",
+        "project_code": "",
     },
 ]
 
@@ -114,16 +118,26 @@ INSTRUCTIONS = [
     ("department", "Optional. Not validated by the formatter; informational only."),
     ("survey", "Optional. Not validated by the formatter; informational only."),
     (
+        "project_code",
+        "Optional. The project code used in the Remark's case reference, e.g. "
+        "'22505AA'. Only needed when case_remark is short ('C# 38305'); leave it "
+        "blank and the app will ask for one instead. No spaces — a code with a "
+        "space cannot go in a case reference.",
+    ),
+    (
         "case_remark",
         "Optional but recommended. Either the full format "
         "'C#<case_number> <project_code> RESP AIRTIME-KSH<amount> <activity_code>', "
         "e.g. 'C#37166 22505AA RESP AIRTIME-KSH29400 d05', or just the case number, "
         "e.g. 'C# 38305'. Written to the output 'Remark' column in the same form "
         "(spacing normalized), which is how it comes back on the OpenFloat Transaction "
-        "Statement. The full format also lets the statement report total each case and "
+        "Statement. A short reference is completed automatically into the full format "
+        "using the project_code column (or the project code typed in the app), the code "
+        "before the '|' in Project_Activity, and the total amount for that case across "
+        "this file. The full format lets the statement report total each case and "
         "compare it against what was actually disbursed. "
         "If left blank, the Remark falls back to '{project_name} - {Project_Activity}'. "
-        "The embedded amount is cross-checked against the row's real amount column "
+        "The embedded amount is cross-checked against the case's total across this file "
         "(mismatch is a soft warning only).",
     ),
 ]

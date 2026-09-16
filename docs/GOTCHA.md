@@ -115,4 +115,22 @@ git add -f docs/processmaker-input-template.xlsx
 
 ---
 
+## 8. The Remark's amount is a case total, and only accepts whole digits
+
+**Problem:** `AIRTIME-KSH(?P<amount>\d+)` takes **digits only**, while `normalize_amount` returns floats. Formatting a case total straight into the reference yields `AIRTIME-KSH28000.0`, which does not parse — and because composition falls back to the short `C#38305` on a failed self-check, the feature looks like it silently did nothing. `remark.py::_whole_kes` renders the integer, and refuses (keeping the short Remark and warning) only for a genuinely fractional total, using the same 0.01 tolerance `statement.py` uses so float noise from summing never trips it.
+
+**Also:** that amount is the **per-case total**, not the row's amount. Two things follow. The validator cross-checks a typed amount against the case total, so a correctly-typed multi-row case no longer warns on every row. And the total covers the rows of *this upload* that survive `check_hard_errors` — split a case across two uploads and each carries a partial total, which `statement.py::rollup_by_case` will then flag as a difference. That is honest about what was uploaded; don't "fix" it.
+
+**Where it bites:** `remark.py` (composition and the cross-check), `statement.py::rollup_by_case` (the other side of the round-trip).
+
+---
+
+## 9. `project_name` is not the project code
+
+**Problem:** The identifier-column scorer (gotcha #7) must not be reused to find the project-code column: its exclude list contains `project` and its ID tokens contain `code`. And in a real export `project_name` is `AGRA Project` — a value with a space, which composes a reference that will not parse.
+
+**Fix:** `remark.py::find_project_code_column` matches whole normalized headers against `config.PROJECT_CODE_COLUMNS`, so `project_name` and `Project_Activity` can never match; and every composed reference is round-tripped before use, so a spaced code degrades to a short Remark plus a warning rather than an unreadable reference.
+
+---
+
 *Add new gotchas below as they're discovered.*

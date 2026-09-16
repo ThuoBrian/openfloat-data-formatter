@@ -14,13 +14,12 @@ from .mapper import map_network
 from .models import OutputRow, TransformResult
 from .normalizer import (
     find_account_name_column,
-    format_case_remark,
     normalize_amount,
     normalize_phone,
-    resolve_case_remark,
-    resolve_unique_id,
+    read_text_cell,
 )
-from .validator import check_hard_errors, validate
+from .remark import build_remark
+from .validator import check_hard_errors, remark_context, validate
 from .writer import load_allowed_types, write_openfloat_excel
 
 
@@ -108,6 +107,8 @@ def _build_output_rows(
 
     # Resolved once so every row draws its Account Name from the same column.
     id_column = find_account_name_column(df.columns, config.account_name_column, frame=df)
+    # The same context validate() reports on, so warnings describe what is written.
+    remarks = remark_context(df, config)
 
     for idx, row in df.iterrows():
         if check_hard_errors(row, config):
@@ -121,22 +122,8 @@ def _build_output_rows(
         account_type, _ = map_network(network, config.network_map)
         amount_value, _ = normalize_amount(row.get("amount", 0))
 
-        # --- Build Remark from case_remark (soft-falls back on parse failure) ---
-        case_remark_raw, case_remark_parts, _ = resolve_case_remark(row.get("case_remark", ""))
-        if case_remark_parts is not None:
-            remark = format_case_remark(case_remark_parts)
-        elif case_remark_raw:
-            # Doesn't match the expected pattern — keep the raw text rather than
-            # silently dropping it (validator already raised a warning for this).
-            remark = case_remark_raw
-        else:
-            project_name = str(row.get("project_name", "")).strip()
-            project_activity = str(row.get("Project_Activity", "")).strip()
-            remark = (
-                f"{project_name} - {project_activity}"
-                if project_name or project_activity
-                else ""
-            )
+        # --- Build Remark (composes the full case reference where it can) ---
+        remark = build_remark(row, remarks).remark
 
         # --- Create OutputRow ---
         output_rows.append(
@@ -144,7 +131,7 @@ def _build_output_rows(
                 **{
                     "Account Type": account_type,
                     "Account Name": (
-                        resolve_unique_id(row.get(id_column, "")) if id_column else ""
+                        read_text_cell(row.get(id_column, "")) if id_column else ""
                     ),
                     "Account Number": normalized_phone,
                     "Till or Paybill Number": "",

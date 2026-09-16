@@ -54,6 +54,13 @@ def default_config():
 
 
 @pytest.fixture
+def case_df(minimal_df):
+    """minimal_df with both rows on one short-form case (amounts 150 + 200 = 350)."""
+    minimal_df["case_remark"] = ["C# 38305", "C#38305"]
+    return minimal_df
+
+
+@pytest.fixture
 def minimal_df():
     """Minimal valid DataFrame for targeted tests."""
     return pd.DataFrame(

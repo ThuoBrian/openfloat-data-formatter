@@ -49,13 +49,21 @@ app.add_middleware(
 )
 
 
-def _request_config(account_name_column: str | None) -> Settings:
-    """Per-request settings, overriding only the identifier column.
+def _request_config(
+    account_name_column: str | None = None,
+    project_code: str | None = None,
+) -> Settings:
+    """Per-request settings, overriding only what the request named.
 
     Copies the singleton rather than building a fresh `Settings()`, which would
     re-read .env on every request and could raise at request time.
     """
-    return settings.model_copy(update={"account_name_column": account_name_column})
+    return settings.model_copy(
+        update={
+            "account_name_column": account_name_column,
+            "project_code": project_code,
+        }
+    )
 
 
 @app.get("/health")
@@ -68,15 +76,17 @@ async def health_check():
 async def validate_file(
     file: Annotated[UploadFile, File()],
     account_name_column: Annotated[str | None, Form()] = None,
+    project_code: Annotated[str | None, Form()] = None,
 ):
     """Validate a Process Maker CSV/Excel file without transforming it.
 
     Returns a JSON validation report with row counts, errors, and warnings.
     `account_name_column` optionally names the identifier column feeding the
     output 'Account Name'; omit it to detect the column from the headers.
+    `project_code` completes a short `C#<case>` reference into the full Remark.
     """
     df = await _read_uploaded_file(file)
-    report = run_validation(df, _request_config(account_name_column))
+    report = run_validation(df, _request_config(account_name_column, project_code))
     return report
 
 
@@ -84,12 +94,14 @@ async def validate_file(
 async def transform_file(
     file: Annotated[UploadFile, File()],
     account_name_column: Annotated[str | None, Form()] = None,
+    project_code: Annotated[str | None, Form()] = None,
 ):
     """Transform a Process Maker CSV/Excel file into an OpenFloat-ready Excel file.
 
     Returns the transformed .xlsx file as a binary download.
     `account_name_column` optionally names the identifier column feeding the
     output 'Account Name'; omit it to detect the column from the headers.
+    `project_code` completes a short `C#<case>` reference into the full Remark.
     """
     # Save uploaded file to temp location
     with tempfile.NamedTemporaryFile(
@@ -100,7 +112,7 @@ async def transform_file(
         tmp_path = tmp.name
 
     try:
-        result = transform(tmp_path, _request_config(account_name_column))
+        result = transform(tmp_path, _request_config(account_name_column, project_code))
     finally:
         # Clean up temp file
         Path(tmp_path).unlink(missing_ok=True)

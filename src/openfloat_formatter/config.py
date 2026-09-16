@@ -80,6 +80,16 @@ ACCOUNT_NAME_KEYWORDS = (
 )
 ACCOUNT_NAME_ID_TOKENS = ("id", "number", "ref", "code")
 
+# Input columns that can carry the project code used in the output Remark's case
+# reference. A plain tolerant alias match, deliberately not the fuzzy scoring
+# above: `project_name` sits next to it in every export and is not a code.
+PROJECT_CODE_COLUMNS = (
+    "project_code",
+    "award_code",
+    "proj_code",
+    "project_number",
+)
+
 # Process Maker input columns
 PROCESSMAKER_COLUMNS = [
     "unique_id",
@@ -111,6 +121,11 @@ class Settings(BaseSettings):
     # Explicit identifier column for the output 'Account Name'. None = detect it
     # (the UI picker sets this per upload; ACCOUNT_NAME_COLUMN overrides via env).
     account_name_column: str | None = None
+
+    # Project code for the Remark's case reference, used when the export has no
+    # project-code column of its own. Set per upload in the app, or via
+    # PROJECT_CODE in the environment.
+    project_code: str | None = None
 
     # File paths
     openfloat_template_path: str = str(DEFAULT_TEMPLATE_PATH)

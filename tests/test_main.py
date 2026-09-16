@@ -138,6 +138,30 @@ class TestIdentifierColumnOverTheApi:
         assert response.headers["content-type"] == XLSX_MEDIA_TYPE
 
 
+class TestProjectCodeOverTheApi:
+    """project_code completes a short case reference through the API too."""
+
+    def test_project_code_form_field_composes(self, client, minimal_df):
+        minimal_df["case_remark"] = ["C# 38305", "C#38305"]
+        response = client.post(
+            "/validate",
+            files={"file": ("input.csv", _csv_bytes(minimal_df), "text/csv")},
+            data={"project_code": "22505AA"},
+        )
+        assert response.status_code == 200
+        assert [w for w in response.json()["warnings"] if w["field"] == "project_code"] == []
+
+    def test_missing_project_code_reports_once(self, client, minimal_df):
+        minimal_df["case_remark"] = ["C# 38305", "C#38305"]
+        response = client.post(
+            "/validate",
+            files={"file": ("input.csv", _csv_bytes(minimal_df), "text/csv")},
+        )
+        assert response.status_code == 200
+        code_warnings = [w for w in response.json()["warnings"] if w["field"] == "project_code"]
+        assert len(code_warnings) == 1
+
+
 class TestStatementReport:
     """POST /statement-report."""
 

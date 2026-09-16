@@ -50,8 +50,8 @@ from .models import (
 from .normalizer import (
     find_account_name_column,
     normalize_phone,
+    read_text_cell,
     resolve_case_remark,
-    resolve_unique_id,
 )
 
 STATEMENT_SHEET_NAME = "Transaction Statement"
@@ -466,7 +466,7 @@ def reconcile(
 
     entries: dict[str, ReconciliationEntry] = {}
     for row_number, phone, phone_error, row, amount in normalized_rows:
-        unique_id = resolve_unique_id(row.get(id_column, "")) if id_column else ""
+        unique_id = read_text_cell(row.get(id_column, "")) if id_column else ""
         if phone_error is not None:
             # Unnormalizable input phone: keep the raw value as the key and
             # surface the error — it can never match a statement row.

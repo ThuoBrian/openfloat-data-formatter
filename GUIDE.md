@@ -67,10 +67,15 @@ The app has two modes — switch between them in the sidebar on the left.
    whatever this export calls it). The app guesses it from the headers and
    shows you a couple of example values; if the guess is wrong, choose the
    right column from the dropdown.
-3. Check the **Data Preview** and **Validation Report** — this tells you how
+3. If your file's `case_remark` is just a case number (e.g. `C# 38305`), type
+   the **Project code** (e.g. `22505AA`) when the app asks. It uses that to
+   build the full reference — `C#38305 22505AA RESP AIRTIME-KSH28000 g06` —
+   where the amount is the total for that case across the file. Without it the
+   Remark stays as the short case number.
+4. Check the **Data Preview** and **Validation Report** — this tells you how
    many rows are valid and flags anything wrong (bad phone numbers,
    unrecognized networks, duplicate numbers, etc.).
-4. Click **Download OpenFloat Excel** to get the file ready for upload to
+5. Click **Download OpenFloat Excel** to get the file ready for upload to
    OpenFloat.
 
 ### Statement Report mode (check what actually happened)
