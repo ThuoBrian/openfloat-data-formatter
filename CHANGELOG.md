@@ -8,6 +8,18 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Finance reconciliation download.** A second button on the Statement Report
+  page produces the sheet finance posts from: every transaction in statement
+  order with a `Debit` column, and one bold `TOTAL` under it. Debit is filled
+  only for successful payments — not merely for rows that carry an amount — so
+  the total is the money that actually left the float; failed and reversed rows
+  are shaded and left with an empty Debit rather than dropped.
+- **Statement Report downloads as an Excel workbook.** A `Successful` sheet and
+  an `Unsuccessful` sheet (where Reversed rows land, with a blank Amount), plus
+  a sheet per reconciliation bucket when a Process Maker input was uploaded.
+  Every sheet ends in a bold `TOTAL` row over its amount columns. Rows carry the
+  statement's own columns plus the file each came from, which is what tells them
+  apart when several statements are uploaded at once.
 - The identifier column feeding the output `Account Name` is now **detected
   from the headers** instead of being read from a fixed column name, so exports
   calling it `Staff ID`, `Staff`, `Respondent ID`, `respo` or `Beneficiary Ref`

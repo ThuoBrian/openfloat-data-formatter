@@ -11,13 +11,16 @@ Provides a simple web interface for non-technical staff to:
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from io import BytesIO
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 import streamlit as st
 
 from openfloat_formatter.config import DEFAULT_TEMPLATE_PATH, Settings
+from openfloat_formatter.models import StatementReport
 from openfloat_formatter.normalizer import (
     find_account_name_column,
     parse_case_remark,
@@ -28,6 +31,7 @@ from openfloat_formatter.remark import build_remark, find_project_code_column
 from openfloat_formatter.statement import build_statement_report
 from openfloat_formatter.transformer import transform
 from openfloat_formatter.validator import validate
+from openfloat_formatter.writer import write_finance_workbook, write_statement_workbook
 
 
 def main():
@@ -312,6 +316,47 @@ def render_transform_page(country_prefix: str):
         st.error("No output was generated. All rows were filtered out due to errors.")
 
 
+XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+
+def _download_name(statement_files: Sequence[Any], suffix: str, fallback: str) -> str:
+    """Name the download after the statement when there is only one of them."""
+    if len(statement_files) == 1:
+        return Path(statement_files[0].name).stem + suffix
+    return fallback
+
+
+def _download_report(report: StatementReport, statement_files: Sequence[Any]) -> None:
+    """Offer the two workbooks: the full report, and the finance sheet."""
+    report_column, finance_column = st.columns(2)
+
+    with report_column:
+        sheets = "Successful and Unsuccessful"
+        if report.reconciliation is not None:
+            sheets += ", plus the four reconciliation sheets"
+        st.download_button(
+            label="📥 Download Statement Report (Excel)",
+            data=write_statement_workbook(report).getvalue(),
+            file_name=_download_name(statement_files, "_report.xlsx", "statement_report.xlsx"),
+            mime=XLSX_MIME,
+        )
+        st.caption(f"{sheets} — each sheet totalled at the bottom.")
+
+    with finance_column:
+        st.download_button(
+            label="💰 Download Finance Reconciliation (Excel)",
+            data=write_finance_workbook(report).getvalue(),
+            file_name=_download_name(
+                statement_files, "_finance.xlsx", "finance_reconciliation.xlsx"
+            ),
+            mime=XLSX_MIME,
+        )
+        st.caption(
+            "Debit totals successful payments only; unsuccessful rows are shaded "
+            "and excluded."
+        )
+
+
 def render_statement_report_page(country_prefix: str):
     """Statement Report: analyse OpenFloat Transaction Statement exports."""
 
@@ -413,6 +458,11 @@ def render_statement_report_page(country_prefix: str):
             f"**{combined.unsuccessful_count}** transaction(s) were NOT successful "
             "and may need follow-up or re-disbursement — see the unsuccessful list below."
         )
+
+    # --- Download ---
+    # Placed before the expanders so the follow-up list is one click away rather
+    # than at the bottom of the whole report.
+    _download_report(report, statement_files)
 
     # --- Per-file summaries ---
     if len(report.file_summaries) > 1 or report.file_summaries:

@@ -38,7 +38,11 @@ The app has two modes, picked in the sidebar:
   gives you after disbursement; the app reports successful vs unsuccessful
   transactions and totals per case — and, if you also add your original
   Process Maker file, who was paid, who wasn't, and who never appeared on
-  the statement.
+  the statement. The whole report downloads as an Excel workbook: a sheet of
+  successful payments, a sheet of unsuccessful/reversed ones, the
+  reconciliation lists, and a total on each. A second download gives finance
+  what they post: a **Debit** column totalling only the payments that went
+  through, with the failed ones shaded rather than dropped.
 
 Nothing is ever silently dropped or hidden: every filtered row and flagged
 discrepancy is reported.

@@ -89,6 +89,17 @@ The app has two modes — switch between them in the sidebar on the left.
 3. Optional: also upload your original Process Maker file. The app then
    shows, per phone number, who was paid, who was on the statement but
    unpaid, and who never appeared on the statement at all.
+4. Click **Download Statement Report (Excel)** to save the whole thing as a
+   workbook: a **Successful** sheet, an **Unsuccessful** sheet (this is where
+   reversed payments go), and — if you uploaded the Process Maker file — one
+   sheet per reconciliation list. Each sheet ends with a bold **TOTAL** row
+   summing its amounts.
+5. Click **Download Finance Reconciliation (Excel)** for the version finance
+   asks for: every transaction on one sheet with a **Debit** column, where the
+   **TOTAL** at the bottom is the money that actually left the float. Payments
+   that failed or were reversed are shaded red with an empty Debit cell — they
+   stay on the sheet as the reason the total is lower than what you uploaded,
+   but they are not counted.
 
 ## What This App Doesn't Do
 

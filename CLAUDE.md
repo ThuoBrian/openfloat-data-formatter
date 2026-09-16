@@ -43,6 +43,10 @@ Real OpenFloat "Transaction Statement" exports (post-disbursement reports) used 
 
 **Allowed Types**: 63 entries in the template. Note `SPA NAKURU RURAL ` has a trailing space — must be preserved verbatim.
 
+**Finance reconciliation (Debit)**: `writer.py::write_finance_workbook` writes the sheet finance posts from — one row per transaction in statement order, columns `Date, Account Name, Phone, Case, Status, Debit`, and a single bold `TOTAL` under **Debit only** (finance wants that one figure, so no other column is totalled). **`Debit` is filled only when `transaction.is_successful`**, never merely when an amount is present: a `Reversed` row happens to arrive with `amount is None`, but a `Failed` or `Pending` row can carry one, and none of them is money that left the float. Unsuccessful rows are shaded with Excel's own "Bad" styling (`FFC7CE` fill, `9C0006` text — still legible in greyscale, which finance attachments get printed in) and kept on the sheet: they are the evidence for why the total is not simply everything uploaded. `_write_sheet`'s `flag_row` predicate does the shading, so it never changes what a row contributes to a total.
+
+**Statement report download**: `writer.py::write_statement_workbook` turns a `StatementReport` into an .xlsx — `Successful` and `Unsuccessful` sheets (Reversed rows land in the latter, with a blank Amount), plus the four reconciliation buckets **only** when the report was reconciled against a Process Maker input. Each sheet ends in a bold `TOTAL` row over its amount columns, mirroring the grand-total footer OpenFloat's own export carries; a sheet with no rows gets its header and no TOTAL, since a bold `0` reads like a finding. The sheet is named `Unsuccessful`, not `Unsuccessful/Reversed` — Excel forbids `/` in sheet names. Statement values are external input, so free text goes through `_sanitize_cell_value` and Account Number through `_as_phone_number` on the way in.
+
 **Statement reports**: OpenFloat Transaction Statement exports (see `sample_report_output/`) are parsed header-driven (column count varies 12–13; `Amount` always last; grand-total footer row; `Reversed` rows carry no Amount but a `Reference Id`). Classification: `Successful` (case-insensitive) = paid; **any other status is unsuccessful** and flagged for follow-up. Reconciliation against the Process Maker input matches on `normalize_phone` of `airtime_phone` vs the statement's `Account Number`, bucketing per phone: matched-paid / matched-but-unpaid / missing-from-statement / statement-not-in-input, with soft notes for amount mismatches, duplicate input phones, and multiply-paid phones. The amount embedded in a statement Remark is the **per-case total** — the rollup flag is `disbursed_total − remark_amount` per case, not a per-row comparison. A short-form (`C#<case_number>`) Remark has no amount, so that case's `remark_amount` and `difference` are `None`: the rows still group and total, there is simply nothing to compare against, and the UI shows — instead of a figure.
 
 ## Architecture
@@ -56,7 +60,8 @@ src/openfloat_formatter/   # the installed Python package (hatchling, src layout
   validator.py     # Input validation: phone, network, amount, duplicates
   transformer.py   # Pipeline orchestrator: read → validate → normalize → map → build output
   statement.py     # Statement Report: parse OpenFloat statements, summarize, reconcile vs input
-  writer.py        # OpenFloat Excel output (openpyxl, two-sheet)
+  writer.py        # Excel output (openpyxl): the OpenFloat upload (two-sheet), the
+                   #   Statement Report workbook, and the finance Debit sheet
   main.py          # FastAPI app: POST /transform, /validate, /statement-report, GET /health
   ui/app.py        # Streamlit UI with two modes: Transform (upload → preview → validate →
                    #   download) and Statement Report (analyze OpenFloat statements)
