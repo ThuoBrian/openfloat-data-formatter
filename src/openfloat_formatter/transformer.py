@@ -95,7 +95,7 @@ def _build_output_rows(
     """Transform valid rows into OutputRow objects.
 
     Skips rows that fail any of `validator.check_hard_errors()`'s checks
-    (consent, phone, network, amount) — the same predicate `validate()` uses
+    (phone, network, amount) — the same predicate `validate()` uses
     to build the validation report, so the two can't drift apart.
 
     Returns:

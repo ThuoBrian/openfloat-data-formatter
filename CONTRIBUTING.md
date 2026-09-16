@@ -16,7 +16,7 @@ Confirm your setup works: `uv run pytest -v` should pass.
 
 1. Branch from `main`: `git checkout -b <short-description>`.
 2. Make the change. If it touches phone normalization, network mapping,
-   consent filtering, amount validation, `case_remark` parsing, or statement
+   amount validation, `case_remark` parsing, or statement
    reconciliation, read [CLAUDE.md](CLAUDE.md) first — those rules are
    deliberate and have edge cases.
 3. Add or update tests for the change.

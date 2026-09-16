@@ -55,7 +55,7 @@ The app has two modes — switch between them in the sidebar on the left.
 
 > **Tip — filling in data by hand?** In your install folder there's a file
 > `docs/processmaker-input-template.xlsx`. It has the correct headers, valid
-> example rows, dropdowns for consent and network, and an **Instructions**
+> example rows, a network dropdown, and an **Instructions**
 > sheet explaining the format rules. Fill it in and export/upload it as your
 > Process Maker file.
 
@@ -63,8 +63,8 @@ The app has two modes — switch between them in the sidebar on the left.
 
 1. Upload your Process Maker CSV or Excel export.
 2. Check the **Data Preview** and **Validation Report** — this tells you how
-   many rows are valid and flags anything wrong (missing consent, bad phone
-   numbers, unrecognized networks, duplicate numbers, etc.).
+   many rows are valid and flags anything wrong (bad phone numbers,
+   unrecognized networks, duplicate numbers, etc.).
 3. Click **Download OpenFloat Excel** to get the file ready for upload to
    OpenFloat.
 

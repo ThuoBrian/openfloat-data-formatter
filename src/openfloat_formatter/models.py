@@ -68,7 +68,6 @@ class ValidationIssue(BaseModel):
 class FilteredCounts(BaseModel):
     """Count of rows filtered out by each validation rule."""
 
-    consent_filtered: int = 0
     invalid_phone: int = 0
     invalid_amount: int = 0
     unmapped_network: int = 0

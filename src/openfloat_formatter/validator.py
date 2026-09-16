@@ -1,7 +1,7 @@
 """Input validation for the OpenFloat Data Formatter.
 
 Scans a Process Maker DataFrame and collects all issues before transformation.
-Hard errors (consent, phone, network, amount) exclude rows from output.
+Hard errors (phone, network, amount) exclude rows from output.
 Soft warnings (duplicates, high amounts) include rows but flag them.
 
 Implements the validation rules from the golden prompt §4.
@@ -28,12 +28,6 @@ def check_hard_errors(row: pd.Series, config: Settings) -> list[tuple[str, str]]
     """
     failures: list[tuple[str, str]] = []
 
-    consent = str(row.get("consent", "")).strip()
-    if consent.lower() != config.required_consent_value.lower():
-        failures.append(
-            ("consent", f"Consent is '{consent}', expected '{config.required_consent_value}'")
-        )
-
     phone_raw = row.get("airtime_phone", "")
     _, phone_error = normalize_phone(phone_raw, config.default_country_prefix)
     if phone_error is not None:
@@ -54,14 +48,10 @@ def check_hard_errors(row: pd.Series, config: Settings) -> list[tuple[str, str]]
 
 # Maps a check_hard_errors() field name to its FilteredCounts attribute.
 _FILTERED_COUNT_FIELD = {
-    "consent": "consent_filtered",
     "airtime_phone": "invalid_phone",
     "amount": "invalid_amount",
     "network": "unmapped_network",
 }
-# Fields whose check_hard_errors() message gets a "Row N: " prefix (matches
-# the original per-check message formatting).
-_ROW_PREFIXED_FIELDS = {"airtime_phone", "amount", "network"}
 
 
 def validate(
@@ -96,17 +86,16 @@ def validate(
         row_num = idx + 2  # 1-based, accounting for header row
         row_errors: list[ValidationIssue] = []
 
-        # --- Shared hard-error checks (consent, phone, amount, network) ---
+        # --- Shared hard-error checks (phone, amount, network) ---
         # Uses the same predicate transformer._build_output_rows() uses to
         # decide row exclusion, so the two can't drift apart.
         for field, message in check_hard_errors(row, config):
-            full_message = f"Row {row_num}: {message}" if field in _ROW_PREFIXED_FIELDS else message
             row_errors.append(
                 ValidationIssue(
                     row_number=row_num,
                     severity=IssueSeverity.ERROR,
                     field=field,
-                    message=full_message,
+                    message=f"Row {row_num}: {message}",
                 )
             )
             count_field = _FILTERED_COUNT_FIELD[field]

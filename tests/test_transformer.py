@@ -16,7 +16,7 @@ class TestTransformWithSampleData:
     def test_transform_output_row_count(self, sample_csv_path, default_config):
         """All 196 rows in the sample CSV should transform successfully."""
         result = transform(sample_csv_path, default_config)
-        # All rows have consent=Yes, valid phones, valid amounts, known networks
+        # All rows have valid phones, valid amounts, known networks
         assert result.output_row_count == 196
         assert result.validation_report.total_rows == 196
 
@@ -70,12 +70,12 @@ class TestBuildOutputRows:
         assert rows[0].account_type == "Safaricom Prepaid"
         assert rows[1].account_type == "Airtel Prepaid"
 
-    def test_consent_filter(self, minimal_df, default_config):
-        """Rows with consent != Yes are excluded."""
-        minimal_df.loc[0, "consent"] = "No"
+    def test_legacy_consent_column_ignored(self, minimal_df, default_config):
+        """A leftover consent column excludes nothing — consent=No rows still output."""
+        minimal_df["consent"] = ["No", ""]
         rows, errors = _build_output_rows(minimal_df, default_config)
-        assert len(rows) == 1
-        assert 0 in errors
+        assert len(rows) == 2
+        assert not errors
 
     def test_remark_format(self, minimal_df, default_config):
         """Remark falls back to 'project_name - Project_Activity' when case_remark is absent."""

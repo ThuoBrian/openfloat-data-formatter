@@ -65,12 +65,6 @@ def render_transform_page(country_prefix: str):
         value=10_000,
         help="Warn when airtime amount exceeds this value",
     )
-    consent_value = st.sidebar.text_input(
-        'Required consent value',
-        value="Yes",
-        help='Rows with this consent value are included (case-insensitive)',
-    )
-
     # --- File Upload ---
     st.header("Upload Process Maker File")
     uploaded_file = st.file_uploader(
@@ -104,7 +98,6 @@ def render_transform_page(country_prefix: str):
     config = Settings(
         max_amount_threshold=amount_threshold,
         default_country_prefix=country_prefix,
-        required_consent_value=consent_value,
         openfloat_template_path=str(DEFAULT_TEMPLATE_PATH),
     )
 
@@ -121,13 +114,10 @@ def render_transform_page(country_prefix: str):
     col3.metric("Filtered Rows", report.total_rows - report.valid_rows)
 
     # Filtered breakdown
-    if report.filtered_counts.consent_filtered > 0 or \
-       report.filtered_counts.invalid_phone > 0 or \
+    if report.filtered_counts.invalid_phone > 0 or \
        report.filtered_counts.invalid_amount > 0 or \
        report.filtered_counts.unmapped_network > 0:
         with st.expander("Filter Breakdown", expanded=True):
-            if report.filtered_counts.consent_filtered > 0:
-                st.write(f"🚫 Consent filtered: **{report.filtered_counts.consent_filtered}**")
             if report.filtered_counts.invalid_phone > 0:
                 st.write(f"📞 Invalid phone: **{report.filtered_counts.invalid_phone}**")
             if report.filtered_counts.invalid_amount > 0:

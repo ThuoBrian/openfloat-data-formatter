@@ -38,7 +38,6 @@ OPENFLOAT_ACCOUNTS_COLUMNS = [
 # Process Maker input columns
 PROCESSMAKER_COLUMNS = [
     "unique_id",
-    "consent",
     "airtime_phone",
     "network",
     "submissiondate",
@@ -63,7 +62,6 @@ class Settings(BaseSettings):
     # Validation thresholds
     max_amount_threshold: int = 10_000
     default_country_prefix: str = "254"
-    required_consent_value: str = "Yes"
 
     # File paths
     openfloat_template_path: str = str(DEFAULT_TEMPLATE_PATH)

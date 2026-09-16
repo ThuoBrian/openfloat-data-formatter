@@ -9,43 +9,22 @@ class TestValidatorWithSampleData:
     """Test validation with the actual sample CSV data."""
 
     def test_sample_csv_all_valid(self, sample_df, default_config):
-        """The sample CSV has 196 valid rows (all consent=Yes)."""
+        """The sample CSV has 196 valid rows."""
         report = validate(sample_df, default_config)
         assert report.total_rows == 196
         assert report.valid_rows == 196
         assert len(report.errors) == 0
 
-    def test_sample_csv_no_consent_filters(self, sample_df, default_config):
-        """No rows should be filtered for consent in the sample data."""
-        report = validate(sample_df, default_config)
-        assert report.filtered_counts.consent_filtered == 0
 
+class TestValidatorConsentIgnored:
+    """Consent is not part of the input schema, and never filters a row."""
 
-class TestValidatorConsentFilter:
-    """Test consent filtering."""
-
-    def test_consent_no_filters(self, minimal_df, default_config):
-        """All-Yes consent rows are valid."""
+    def test_legacy_consent_column_is_ignored(self, minimal_df, default_config):
+        """An older export still carrying consent=No validates cleanly."""
+        minimal_df["consent"] = ["No", ""]
         report = validate(minimal_df, default_config)
-        assert report.filtered_counts.consent_filtered == 0
-
-    def test_consent_filters_no(self, minimal_df, default_config):
-        """Rows with consent=No are filtered."""
-        minimal_df.loc[0, "consent"] = "No"
-        report = validate(minimal_df, default_config)
-        assert report.filtered_counts.consent_filtered == 1
-
-    def test_consent_case_insensitive(self, minimal_df, default_config):
-        """Consent matching is case-insensitive."""
-        minimal_df.loc[0, "consent"] = "YES"
-        report = validate(minimal_df, default_config)
-        assert report.filtered_counts.consent_filtered == 0
-
-    def test_consent_empty(self, minimal_df, default_config):
-        """Empty consent is filtered."""
-        minimal_df.loc[0, "consent"] = ""
-        report = validate(minimal_df, default_config)
-        assert report.filtered_counts.consent_filtered == 1
+        assert report.valid_rows == 2
+        assert len(report.errors) == 0
 
 
 class TestValidatorPhoneValidation:
@@ -179,7 +158,7 @@ class TestValidatorEmptyDataFrame:
     def test_empty_df(self, default_config):
         """Empty DataFrame returns zero counts."""
         df = pd.DataFrame(columns=[
-            "unique_id", "consent", "airtime_phone", "network",
+            "unique_id", "airtime_phone", "network",
             "submissiondate", "today", "amount",
             "project_name", "Project_Activity", "department", "survey",
         ])

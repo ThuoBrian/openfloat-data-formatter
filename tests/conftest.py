@@ -49,7 +49,6 @@ def default_config():
     return Settings(
         max_amount_threshold=10_000,
         default_country_prefix="254",
-        required_consent_value="Yes",
         openfloat_template_path=str(TEMPLATE_PATH),
     )
 
@@ -60,7 +59,6 @@ def minimal_df():
     return pd.DataFrame(
         {
             "unique_id": ["TEST001", "TEST002"],
-            "consent": ["Yes", "Yes"],
             "airtime_phone": ["712345678", "798765432"],
             "network": ["Safaricom", "Airtel"],
             "submissiondate": ["8/25/2026 10:00", "8/25/2026 11:00"],
@@ -158,7 +156,6 @@ def pm_input_df():
         rows.append(
             {
                 "unique_id": f"TEST{len(rows) + 1:03d}",
-                "consent": "Yes",
                 "airtime_phone": phone,
                 "network": "Safaricom",
                 "submissiondate": "8/25/2026 10:00",

@@ -32,7 +32,7 @@ Full walkthrough — starting the app later, updates, using both modes, FAQ:
 The app has two modes, picked in the sidebar:
 
 - **Transform** — upload a Process Maker export; the app checks every row
-  (consent, phone numbers, network, amounts, duplicates), tells you exactly
+  (phone numbers, network, amounts, duplicates), tells you exactly
   what's wrong, and builds the OpenFloat-ready Excel file to upload.
 - **Statement Report** — upload the Transaction Statement file(s) OpenFloat
   gives you after disbursement; the app reports successful vs unsuccessful
@@ -45,7 +45,7 @@ discrepancy is reported.
 
 Filling in data by hand? Use **`docs/processmaker-input-template.xlsx`** (in
 your install folder) — it has the correct headers, valid example rows,
-dropdowns for consent and network, and an Instructions sheet explaining the
+a network dropdown, and an Instructions sheet explaining the
 format rules.
 
 ### Limitations
@@ -108,7 +108,6 @@ to `.env` and edit, or set the environment variable directly:
 |---|---|---|
 | `MAX_AMOUNT_THRESHOLD` | `10000` | Airtime amount (KES) above which a row gets a soft warning |
 | `DEFAULT_COUNTRY_PREFIX` | `254` | Country code added to the front of normalized phone numbers |
-| `REQUIRED_CONSENT_VALUE` | `Yes` | Value required in the `consent` column to include a row (case-insensitive) |
 | `OPENFLOAT_TEMPLATE_PATH` | `docs/openfloat-transactions-template.xlsx` | Path to the OpenFloat template, relative to the project's top-level folder |
 
 See `src/openfloat_formatter/config.py` for the full `Settings` model.

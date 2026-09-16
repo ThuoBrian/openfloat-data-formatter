@@ -19,7 +19,6 @@
 
 - [ ] Phone normalization
 - [ ] Network → Account Type mapping
-- [ ] Consent filter
 - [ ] Duplicate detection
 - [ ] Amount validation
 - [ ] `case_remark` / Remark parsing
@@ -30,7 +29,7 @@
 
 <!-- If validation logic changed, confirm the hard-error / soft-warning split still holds. -->
 
-- [ ] Hard errors (invalid phone, unmapped network, invalid amount, non-`Yes` consent) still exclude the row and are reported in `errors`
+- [ ] Hard errors (invalid phone, unmapped network, invalid amount) still exclude the row and are reported in `errors`
 - [ ] Soft warnings (duplicates, high amounts, `case_remark` parse/mismatch) still include the row and are reported in `warnings`
 - [ ] Validator still never mutates the input DataFrame
 - [ ] N/A — no validation logic changed

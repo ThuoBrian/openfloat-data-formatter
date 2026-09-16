@@ -2,8 +2,8 @@
 
 Produces `docs/processmaker-input-template.xlsx`: a ready-to-fill export
 template for staff, with the exact columns the formatter expects, a couple
-of valid example rows, in-cell dropdown validation for the two enum-like
-columns (`consent`, `network`), and an `Instructions` sheet documenting the
+of valid example rows, in-cell dropdown validation for the `network` column,
+and an `Instructions` sheet documenting the
 per-column format rules (see CLAUDE.md "Key Domain Rules").
 
 Column order is imported from `openfloat_formatter.config` so this template can
@@ -31,14 +31,12 @@ OUTPUT_PATH = PROJECT_ROOT / "docs" / "processmaker-input-template.xlsx"
 CASE_REMARK_COLUMN = "case_remark"
 TEMPLATE_COLUMNS = [*PROCESSMAKER_COLUMNS, CASE_REMARK_COLUMN]
 
-CONSENT_CHOICES = ["Yes", "No"]
 NETWORK_CHOICES = list(DEFAULT_NETWORK_MAP.keys())
 
 # Sample rows demonstrating valid data, mirroring src/tests/conftest.py::minimal_df
 SAMPLE_ROWS = [
     {
         "unique_id": "TEST001",
-        "consent": "Yes",
         "airtime_phone": "712345678",
         "network": "Safaricom",
         "submissiondate": "8/25/2026 10:00",
@@ -52,7 +50,6 @@ SAMPLE_ROWS = [
     },
     {
         "unique_id": "TEST002",
-        "consent": "Yes",
         "airtime_phone": "798765432",
         "network": "Airtel",
         "submissiondate": "8/25/2026 11:00",
@@ -66,7 +63,6 @@ SAMPLE_ROWS = [
     },
     {
         "unique_id": "TEST003",
-        "consent": "Yes",
         "airtime_phone": "722334455",
         "network": "Telkom",
         "submissiondate": "8/25/2026 12:00",
@@ -85,8 +81,6 @@ SAMPLE_ROWS = [
 INSTRUCTIONS = [
     ("unique_id", "Optional. Any identifier; written verbatim to the output "
      "'Account Name' column."),
-    ("consent", 'Required. Must be exactly "Yes" (case-insensitive). Any other '
-     'value excludes the row.'),
     (
         "airtime_phone",
         "Required. Kenyan phone number. Digits only after cleanup; a leading "
@@ -143,19 +137,6 @@ def build_template_sheet(wb: Workbook) -> None:
             ws.cell(row=row_idx, column=col_idx, value=sample.get(column_name, ""))
 
     last_row = DROPDOWN_ROWS + 1
-
-    consent_col = TEMPLATE_COLUMNS.index("consent") + 1
-    consent_letter = ws.cell(row=1, column=consent_col).column_letter
-    consent_dv = DataValidation(
-        type="list",
-        formula1=f'"{",".join(CONSENT_CHOICES)}"',
-        allow_blank=True,
-        showDropDown=False,
-    )
-    consent_dv.error = 'Consent must be "Yes" or "No".'
-    consent_dv.errorTitle = "Invalid consent"
-    ws.add_data_validation(consent_dv)
-    consent_dv.add(f"{consent_letter}2:{consent_letter}{last_row}")
 
     network_col = TEMPLATE_COLUMNS.index("network") + 1
     network_letter = ws.cell(row=1, column=network_col).column_letter

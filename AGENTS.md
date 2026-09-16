@@ -5,7 +5,7 @@ repository.
 
 **Read [CLAUDE.md](CLAUDE.md) first** — it is the single, authoritative
 agent-facing document for this repo: project summary, domain rules (phone
-normalization, network mapping, consent filtering, statement reconciliation),
+normalization, network mapping, statement reconciliation),
 architecture, build & run commands (all uv-based), and the error-handling
 convention (hard errors vs soft warnings).
 

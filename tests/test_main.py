@@ -92,11 +92,11 @@ class TestTransform:
 
     def test_all_rows_filtered_returns_422(self, client, minimal_df):
         """When every row fails validation, no output is produced → 422."""
-        all_no_consent = minimal_df.copy()
-        all_no_consent["consent"] = "No"
+        all_bad_phones = minimal_df.copy()
+        all_bad_phones["airtime_phone"] = "123"
         response = client.post(
             "/transform",
-            files={"file": ("input.csv", _csv_bytes(all_no_consent), "text/csv")},
+            files={"file": ("input.csv", _csv_bytes(all_bad_phones), "text/csv")},
         )
         assert response.status_code == 422
 
