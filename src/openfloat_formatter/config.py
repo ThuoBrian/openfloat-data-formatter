@@ -18,6 +18,9 @@ DEFAULT_TEMPLATE_PATH = PROJECT_ROOT / "docs" / "openfloat-transactions-template
 DEFAULT_NETWORK_MAP: dict[str, str] = {
     "Safaricom": "Safaricom Prepaid",
     "Airtel": "Airtel Prepaid",
+    # Some exports write the carrier's full name. Prepaid, matching how bare
+    # "Airtel" maps — a postpaid line is always spelled out as such.
+    "Airtel Kenya": "Airtel Prepaid",
     "Airtel Postpaid": "Airtel Postpaid",
     "Telkom": "Telkom Kenya Prepaid",
     "Telkom Postpaid": "Telkom Kenya Postpaid",
@@ -89,6 +92,93 @@ PROJECT_CODE_COLUMNS = (
     "proj_code",
     "project_number",
 )
+
+# Input columns whose header changes between exports. Only the identifier
+# column was flexible before; a run naming its phone column 'payphone_number'
+# or its network column 'service_provider' failed every row against a column
+# that was not there. Each canonical field lists the headers seen in real
+# Process Maker runs; matching ignores case, spaces, underscores and hyphens
+# (see normalizer.py::resolve_input_columns).
+INPUT_COLUMN_ALIASES: dict[str, tuple[str, ...]] = {
+    "airtime_phone": (
+        "airtime_phone",
+        "payphone_number",
+        "pay_phone",
+        "payment_phone",
+        "phone",
+        "phone_number",
+        "mobile",
+        "mobile_number",
+        "msisdn",
+        "telephone",
+        "recipient_phone",
+        "beneficiary_phone",
+        "beneficiary_contact",
+        "contact_number",
+        "mpesa_number",
+        "airtime_no",
+        "tel",
+        "cell",
+    ),
+    "network": (
+        "network",
+        "service_provider",
+        "provider",
+        "telco",
+        "carrier",
+        "mobile_network",
+        "network_provider",
+        "operator",
+        "mno",
+    ),
+    "amount": (
+        "amount",
+        "airtime_amount",
+        "pay_amount",
+        "payment_amount",
+        "amount_kes",
+        "value",
+        "kes",
+    ),
+    "case_remark": (
+        "case_remark",
+        "remark",
+        "case_reference",
+        "case_ref",
+    ),
+    "project_name": (
+        "project_name",
+        "current_project",
+        "project",
+    ),
+    "Project_Activity": (
+        "Project_Activity",
+        "activity",
+    ),
+}
+
+# Last-resort token match for the three fields whose absence fails every row.
+# Applied only when no alias matched, so an unlisted header like
+# 'respondent_mobile_no' still resolves. Deliberately not offered for the
+# Remark or project columns, where a wrong guess writes a bad reference
+# rather than simply failing loudly.
+INPUT_COLUMN_TOKENS: dict[str, tuple[str, ...]] = {
+    "airtime_phone": ("phone", "msisdn", "mobile"),
+    "network": ("network", "provider", "telco", "carrier"),
+    "amount": ("amount",),
+}
+
+# Headers a token match must never claim, per field. 'date' is excluded
+# everywhere ('paydate' is not an amount). 'name' is excluded only for the
+# fields where it signals a person rather than the value: 'phone_owner_name'
+# is not a phone, but 'network_name' and 'provider_name' genuinely are the
+# network — a blanket exclusion here silently dropped three of the commonest
+# network headers.
+INPUT_COLUMN_TOKEN_EXCLUDE: dict[str, tuple[str, ...]] = {
+    "airtime_phone": ("name", "date"),
+    "network": ("date",),
+    "amount": ("name", "date"),
+}
 
 # Process Maker input columns
 PROCESSMAKER_COLUMNS = [

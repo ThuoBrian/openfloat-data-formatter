@@ -13,6 +13,7 @@ from .config import Settings, settings
 from .mapper import map_network
 from .models import OutputRow, TransformResult
 from .normalizer import (
+    canonicalize_input_columns,
     find_account_name_column,
     normalize_amount,
     normalize_phone,
@@ -76,12 +77,17 @@ def transform(
 
 
 def _read_input(path: Path) -> pd.DataFrame:
-    """Read a CSV or Excel file into a DataFrame."""
+    """Read a CSV or Excel file into a DataFrame.
+
+    Column names are canonicalized on the way out, so an export calling its
+    phone column 'payphone_number' reads the same as one calling it
+    'airtime_phone'.
+    """
     suffix = path.suffix.lower()
     if suffix == ".csv":
-        return pd.read_csv(str(path))
+        return canonicalize_input_columns(pd.read_csv(str(path)))[0]
     elif suffix in (".xlsx", ".xls", ".xlsm"):
-        return pd.read_excel(str(path))
+        return canonicalize_input_columns(pd.read_excel(str(path)))[0]
     else:
         raise ValueError(
             f"Unsupported file format: '{suffix}'. "

@@ -22,9 +22,11 @@ import streamlit as st
 from openfloat_formatter.config import DEFAULT_TEMPLATE_PATH, Settings
 from openfloat_formatter.models import StatementReport
 from openfloat_formatter.normalizer import (
+    canonicalize_input_columns,
     find_account_name_column,
     parse_case_remark,
     read_text_cell,
+    resolve_input_columns,
 )
 from openfloat_formatter.remark import (
     build_remark,
@@ -72,39 +74,135 @@ def main():
 AUTO_DETECT = "(auto-detect)"
 
 
-def _select_identifier_column(df: pd.DataFrame) -> str | None:
-    """Show the identifier column picker and return the user's choice.
+# The fields worth letting a user map by hand, with the plain-English label
+# shown in the picker. Only these three fail every row when missing; the rest
+# degrade gracefully, so cluttering the form with them would cost more than
+# it gives.
+_MAPPABLE_FIELDS = (
+    ("airtime_phone", "Phone number"),
+    ("network", "Network / provider"),
+    ("amount", "Amount"),
+)
 
-    Returns None when the auto-detect sentinel is selected, which leaves
-    `Settings.account_name_column` unset and lets detection run per file.
+_NOT_PRESENT = "— not in this file —"
+
+
+def _select_columns(raw_df: pd.DataFrame) -> tuple[dict[str, str], str | None]:
+    """One place to choose every column the pipeline reads.
+
+    All four choices live together because they are the same decision from the
+    user's side — "which of my columns is this?" — and splitting the identifier
+    into its own always-visible section made a correct guess as loud as a wrong
+    one. Detection pre-selects each dropdown, so a recognised file needs no
+    interaction and this stays collapsed; it opens by itself when something is
+    missing.
+
+    The widgets are deliberately unkeyed — Streamlit derives their identity
+    from their options, so uploading a different file resets the choices
+    instead of carrying a stale column across.
+
+    Returns:
+        A tuple of (field → chosen column, identifier column or None). The
+        identifier is None when left on auto-detect, which leaves
+        `Settings.account_name_column` unset so detection runs per file.
     """
-    st.header("Identifier Column")
-    detected = find_account_name_column(df.columns, frame=df)
-    options = [AUTO_DETECT, *(str(column) for column in df.columns)]
-    choice = st.selectbox(
-        "Column used for the output 'Account Name'",
-        options=options,
-        index=options.index(str(detected)) if detected is not None else 0,
-        help="Staff ID, Respondent ID, Unique ID — whatever this export calls it. "
-        "Detected automatically; change it here if the guess is wrong.",
-    )
+    detected, warnings = resolve_input_columns(raw_df.columns)
+    detected_id = find_account_name_column(raw_df.columns, frame=raw_df)
+    missing = [label for field, label in _MAPPABLE_FIELDS if field not in detected]
+    if detected_id is None:
+        missing.append("Identifier")
 
-    if choice == AUTO_DETECT:
-        if detected is None:
-            st.warning(
-                "No identifier column detected. Account Name will be blank for every "
-                "row — pick the right column above."
+    with st.expander(
+        "Column mapping" + (f" — {len(missing)} not found" if missing else ""),
+        expanded=bool(missing),
+    ):
+        st.caption(
+            "Your export can name these columns anything. We guess from the "
+            "header; correct any that are wrong."
+        )
+        options = [_NOT_PRESENT, *(str(column) for column in raw_df.columns)]
+        chosen: dict[str, str] = {}
+        for field, label in _MAPPABLE_FIELDS:
+            current = detected.get(field)
+            selection = st.selectbox(
+                label,
+                options,
+                index=options.index(current) if current in options else 0,
+                help=f"Read as `{field}`",
             )
-        return None
+            if selection != _NOT_PRESENT:
+                chosen[field] = selection
 
-    filled = [read_text_cell(cell) for cell in df[choice]]
-    non_empty = [value for value in filled if value]
-    sample = ", ".join(non_empty[:3])
-    st.caption(
-        f"Account Name will use **{choice}** — {len(non_empty)}/{len(df)} rows have a "
-        f"value{f' (e.g. {sample})' if sample else ''}"
+        id_options = [AUTO_DETECT, *(str(column) for column in raw_df.columns)]
+        id_choice = st.selectbox(
+            "Identifier (Account Name)",
+            id_options,
+            index=(
+                id_options.index(str(detected_id))
+                if detected_id is not None
+                else 0
+            ),
+            help="Staff ID, Respondent ID, Case ID — whatever this export calls "
+            "it. Written to the output 'Account Name' so a payment can be "
+            "traced back to its source record.",
+        )
+        identifier = None if id_choice == AUTO_DETECT else id_choice
+
+        # Sample values are the only way to catch a plausible-but-wrong
+        # identifier — a column can score well and still hold the wrong thing.
+        preview = identifier or (str(detected_id) if detected_id else None)
+        if preview is not None:
+            filled = [read_text_cell(cell) for cell in raw_df[preview]]
+            non_empty = [value for value in filled if value]
+            sample = ", ".join(non_empty[:3])
+            st.caption(
+                f"Account Name will use **{preview}** — {len(non_empty)}/"
+                f"{len(raw_df)} rows have a value"
+                f"{f' (e.g. {sample})' if sample else ''}"
+            )
+        else:
+            st.caption(
+                ":orange[No identifier column detected — Account Name will be "
+                "blank for every row unless you pick one.]"
+            )
+
+        for warning in warnings:
+            st.caption(f":orange[{warning}]")
+
+    still_missing = [
+        label for field, label in _MAPPABLE_FIELDS if field not in chosen
+    ]
+    if still_missing:
+        st.error(
+            "No column chosen for: "
+            + ", ".join(f"**{label}**" for label in still_missing)
+            + ". Every row will fail until you pick one under **Column mapping**."
+        )
+    return chosen, identifier
+
+
+def _show_column_mapping(column_map: dict[str, str]) -> None:
+    """Show which of the user's columns was read as which field.
+
+    Only renamed columns are worth showing — a file already using the
+    documented headers would otherwise get a table restating itself.
+    """
+    renamed = {
+        canonical: actual
+        for canonical, actual in column_map.items()
+        if actual != canonical
+    }
+    if not renamed:
+        return
+    st.caption("Columns read from your file:")
+    st.dataframe(
+        pd.DataFrame(
+            [{"In your file": actual, "Read as": canonical}
+             for canonical, actual in sorted(renamed.items())]
+        ),
+        hide_index=True,
+        use_container_width=True,
     )
-    return choice
 
 
 def _preview_remark(df: pd.DataFrame, config: Settings) -> None:
@@ -185,7 +283,7 @@ def render_transform_page(country_prefix: str):
     # --- Read file ---
     try:
         suffix = Path(uploaded_file.name).suffix.lower()
-        df = (
+        raw_df = (
             pd.read_csv(uploaded_file)
             if suffix == ".csv"
             else pd.read_excel(uploaded_file)
@@ -194,18 +292,21 @@ def render_transform_page(country_prefix: str):
         st.error(f"Error reading file: {e}")
         return
 
+    # Exports rename these columns per run, so resolve them to the canonical
+    # names before anything reads the frame. The picker pre-selects whatever
+    # detection found and lets the user override it, which is what makes a
+    # header nobody has seen before workable without a code change.
+    column_choice, id_column = _select_columns(raw_df)
+    df, column_map, _column_warnings = canonicalize_input_columns(
+        raw_df, column_choice
+    )
+    _show_column_mapping(column_map)
+
     # --- Preview ---
     st.header("Data Preview")
     st.markdown(f"**{len(df)} rows** × **{len(df.columns)} columns**")
     st.dataframe(df.head(10), use_container_width=True)
 
-    # --- Identifier column ---
-    # Detected from the headers, but always shown, because a wrong guess here
-    # blanks Account Name for the whole upload and nothing else would say so.
-    # The widget is deliberately unkeyed: Streamlit derives its identity from
-    # its options, so uploading a different file resets the choice instead of
-    # carrying a stale column over.
-    id_column = _select_identifier_column(df)
     project_code = _select_project_code(df)
 
     # --- Configuration ---
@@ -409,9 +510,9 @@ def render_statement_report_page(country_prefix: str):
     if pm_file is not None:
         try:
             if Path(pm_file.name).suffix.lower() == ".csv":
-                input_df = pd.read_csv(pm_file)
+                input_df = canonicalize_input_columns(pd.read_csv(pm_file))[0]
             else:
-                input_df = pd.read_excel(pm_file)
+                input_df = canonicalize_input_columns(pd.read_excel(pm_file))[0]
         except Exception as e:
             st.error(f"Error reading Process Maker input: {e}")
             return

@@ -8,6 +8,23 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Input columns are matched by name, not by exact spelling.** Only the
+  identifier column was flexible before; an export calling its phone column
+  `payphone_number` or its network column `service_provider` failed every row
+  against a column that was not there. `airtime_phone`, `network`, `amount`,
+  `case_remark`, `project_name` and `Project_Activity` now each resolve
+  through an alias table (`INPUT_COLUMN_ALIASES`), tolerant of case, spaces,
+  underscores and hyphens, with a token fallback for the three fields whose
+  absence fails every row. Because no alias table can cover every export, the
+  Transform page also carries a **Column mapping** picker: it pre-selects what
+  was detected — so a recognised file needs no interaction — and lets you point
+  at any column yourself when the guess is wrong or the header is one nobody
+  has seen before. It opens automatically when a required column is missing.
+  The identifier column picker now lives in that same panel rather than its own
+  always-visible section — same decision, one place — and still shows the fill
+  count and sample values that catch a plausible-but-wrong guess.
+- `Airtel Kenya` maps to `Airtel Prepaid`, for exports that write the carrier's
+  full name.
 - **Finance reconciliation download.** A second button on the Statement Report
   page produces the sheet finance posts from: every transaction in statement
   order with a `Debit` column, and one bold `TOTAL` under it. Debit is filled
@@ -73,6 +90,11 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **A blank phone cell no longer aborts the whole upload.** One empty
+  `airtime_phone` makes pandas type the column `float64`, and converting the
+  resulting `NaN` raised rather than returning an error — a single blank cell
+  killed a 196-row file. The row is now an ordinary hard error and every other
+  row still transforms.
 - Documentation: stale pre-src-layout paths in the PR template,
   `sample_report_output/README.md`, and `CLAUDE.md`; removed the hardcoded
   test count. Added a proprietary License & use section and an HTTP API table

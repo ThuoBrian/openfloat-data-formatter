@@ -16,10 +16,12 @@ class TestMapNetwork:
             ("Airtel Postpaid", "Airtel Postpaid"),
             ("Telkom", "Telkom Kenya Prepaid"),
             ("Telkom Postpaid", "Telkom Kenya Postpaid"),
+            # Some exports write the carrier's full name.
+            ("Airtel Kenya", "Airtel Prepaid"),
         ],
     )
     def test_known_mappings(self, network, expected):
-        """All 5 known network mappings produce correct account types."""
+        """Every known network mapping produces the right account type."""
         result, error = map_network(network)
         assert result == expected
         assert error is None

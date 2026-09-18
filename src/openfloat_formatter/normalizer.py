@@ -10,7 +10,7 @@ Handles the normalization pipeline defined in the golden prompt §4.2:
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from typing import Any, NamedTuple
 
 import pandas as pd
@@ -20,6 +20,9 @@ from .config import (
     ACCOUNT_NAME_EXCLUDE_TOKENS,
     ACCOUNT_NAME_ID_TOKENS,
     ACCOUNT_NAME_KEYWORDS,
+    INPUT_COLUMN_ALIASES,
+    INPUT_COLUMN_TOKEN_EXCLUDE,
+    INPUT_COLUMN_TOKENS,
 )
 
 
@@ -328,6 +331,169 @@ def find_account_name_column(
             if any(read_text_cell(cell) for cell in frame[name]):
                 return str(name)
     return str(ranked[0])
+
+
+_ALIAS_KEYS: dict[str, frozenset[str]] = {
+    canonical: frozenset(_header_key(alias) for alias in aliases)
+    for canonical, aliases in INPUT_COLUMN_ALIASES.items()
+}
+
+
+def resolve_input_columns(
+    columns: Iterable[object],
+    overrides: Mapping[str, str] | None = None,
+) -> tuple[dict[str, str], list[str]]:
+    """Map each canonical input field to the column this file actually uses.
+
+    Exports rename these columns per run — one calls the phone column
+    `airtime_phone`, the next `payphone_number`, the next `mobile`. Before
+    this, only the Account Name column was detected by shape; every other
+    field was read by exact name, so a renamed phone or network column failed
+    the hard-error check on every row against a column that was not there.
+
+    Resolution order per field, first hit wins:
+
+    0. An explicit `overrides` entry — the user naming the column themselves.
+       No alias table can cover every export, so this is the escape hatch that
+       always works; detection is the convenience, not the guarantee.
+    1. The canonical name itself, matched exactly.
+    2. A known alias from `config.INPUT_COLUMN_ALIASES`, matched through
+       `_header_key` so 'Pay Phone Number' finds 'payphone_number'.
+    3. For phone/network/amount only, a token from
+       `config.INPUT_COLUMN_TOKENS` appearing anywhere in the header, as long
+       as the header carries no `INPUT_COLUMN_TOKEN_EXCLUDE` token.
+
+    A column is claimed by at most one field, so two fields can never read the
+    same column. Ties break leftmost.
+
+    Args:
+        columns: The input file's headers.
+        overrides: Canonical field → the column the user picked for it, set
+            per upload by the Streamlit mapper. Matched exactly first, then by
+            `_header_key`. Naming a column the file lacks falls back to
+            detection with a warning rather than failing the upload — the same
+            contract `find_account_name_column` uses for a stale setting.
+
+    Returns:
+        A tuple of (mapping, warnings). `mapping` is canonical name → the
+        column in this file, holding only the fields actually found; a field
+        the file lacks is simply absent, which downstream code already treats
+        as a missing column. `warnings` describes ambiguity worth reporting.
+
+    Examples:
+        >>> mapping, _ = resolve_input_columns(
+        ...     ["caseid", "payphone_number", "service_provider", "amount"])
+        >>> mapping["airtime_phone"], mapping["network"]
+        ('payphone_number', 'service_provider')
+    """
+    names = list(columns)
+    keyed = [(name, _header_key(name)) for name in names]
+    mapping: dict[str, str] = {}
+    warnings: list[str] = []
+    taken: set[str] = set()
+
+    # Pass 0 — an explicit choice always wins. Detection is a convenience;
+    # this is what makes an unlisted header workable without a code change.
+    lookup = {_header_key(name): str(name) for name in names}
+    for canonical, chosen in (overrides or {}).items():
+        if not chosen:
+            continue
+        matched = chosen if chosen in [str(n) for n in names] else lookup.get(
+            _header_key(chosen)
+        )
+        if matched is None:
+            warnings.append(
+                f"Column '{chosen}' chosen for '{canonical}' is not in this "
+                f"file — detected it instead"
+            )
+            continue
+        mapping[canonical] = matched
+        taken.add(matched)
+
+    # Pass 1 — the canonical header itself always wins, so a file already in
+    # the documented shape is never re-interpreted by a looser rule below.
+    for canonical in INPUT_COLUMN_ALIASES:
+        if canonical in mapping:
+            continue
+        for name, _key in keyed:
+            if str(name) == canonical and str(name) not in taken:
+                mapping[canonical] = str(name)
+                taken.add(str(name))
+                break
+
+    # Pass 2 — known aliases.
+    for canonical, alias_keys in _ALIAS_KEYS.items():
+        if canonical in mapping:
+            continue
+        matches = [
+            str(name)
+            for name, key in keyed
+            if key in alias_keys and str(name) not in taken
+        ]
+        if not matches:
+            continue
+        mapping[canonical] = matches[0]
+        taken.add(matches[0])
+        if len(matches) > 1:
+            warnings.append(
+                f"Columns {matches} all look like '{canonical}' — "
+                f"read '{matches[0]}' and ignored the rest"
+            )
+
+    # Pass 3 — token fallback, phone/network/amount only.
+    for canonical, tokens in INPUT_COLUMN_TOKENS.items():
+        if canonical in mapping:
+            continue
+        for name, key in keyed:
+            if str(name) in taken:
+                continue
+            excluded = INPUT_COLUMN_TOKEN_EXCLUDE.get(canonical, ())
+            if any(token in key for token in tokens) and not any(
+                bad in key for bad in excluded
+            ):
+                mapping[canonical] = str(name)
+                taken.add(str(name))
+                warnings.append(
+                    f"Read '{name}' as '{canonical}' — matched on shape, "
+                    f"not a known column name"
+                )
+                break
+
+    return mapping, warnings
+
+
+def canonicalize_input_columns(
+    df: pd.DataFrame,
+    overrides: Mapping[str, str] | None = None,
+) -> tuple[pd.DataFrame, dict[str, str], list[str]]:
+    """Rename a freshly-read input frame's columns to the canonical names.
+
+    Applied once at ingestion so the ~15 `row.get("airtime_phone")` reads
+    scattered across validator/transformer/remark/statement keep working
+    unchanged regardless of what the export called its columns.
+
+    Returns a renamed copy; the caller's frame is left alone. Columns that are
+    not one of the canonical fields — the identifier column included — pass
+    through untouched, so `find_account_name_column` still sees the file's own
+    headers and scores them as before.
+
+    Args:
+        df: The frame as read from CSV/Excel.
+        overrides: Canonical field → column, as `resolve_input_columns` takes it.
+
+    Returns:
+        A tuple of (frame, mapping, warnings) — mapping and warnings exactly
+        as `resolve_input_columns` returns them, for the UI to report.
+    """
+    mapping, warnings = resolve_input_columns(df.columns, overrides)
+    renames = {
+        actual: canonical
+        for canonical, actual in mapping.items()
+        if actual != canonical
+    }
+    if not renames:
+        return df, mapping, warnings
+    return df.rename(columns=renames), mapping, warnings
 
 
 def format_case_remark(parts: CaseRemarkParts) -> str:

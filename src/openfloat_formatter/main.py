@@ -27,6 +27,7 @@ from fastapi.responses import StreamingResponse
 
 from .config import Settings, settings
 from .models import StatementReport, ValidationReport
+from .normalizer import canonicalize_input_columns
 from .statement import build_statement_report
 from .transformer import transform
 from .validator import validate as run_validation
@@ -170,9 +171,9 @@ async def _read_uploaded_file(file: UploadFile) -> pd.DataFrame:
     content = await file.read()
 
     if suffix == ".csv":
-        return pd.read_csv(io.BytesIO(content))
+        return canonicalize_input_columns(pd.read_csv(io.BytesIO(content)))[0]
     elif suffix in (".xlsx", ".xls", ".xlsm"):
-        return pd.read_excel(io.BytesIO(content))
+        return canonicalize_input_columns(pd.read_excel(io.BytesIO(content)))[0]
     else:
         raise HTTPException(
             status_code=400,
