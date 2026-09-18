@@ -1,5 +1,6 @@
 """Tests for the normalizer module — phone number and amount normalization."""
 
+import io
 
 import pandas as pd
 import pytest
@@ -82,6 +83,29 @@ class TestNormalizePhone:
         result, error = normalize_phone("")
         assert result == ""
         assert error is not None
+
+    def test_blank_cell_read_as_nan(self):
+        """A blank phone cell — pandas floats the column, NaN must not raise."""
+        column = pd.read_csv(io.StringIO("airtime_phone,amount\n254785271309,100\n,200\n"))[
+            "airtime_phone"
+        ]
+        assert column.dtype == "float64"
+
+        result, error = normalize_phone(column.iloc[1])
+        assert result == ""
+        assert error is not None
+
+    def test_none_cell(self):
+        """A None cell (openpyxl reads empty statement cells as None)."""
+        result, error = normalize_phone(None)
+        assert result == ""
+        assert error is not None
+
+    def test_254_prefixed_from_float_column(self):
+        """A 254-prefixed number in a float column still normalizes."""
+        result, error = normalize_phone(254785271309.0)
+        assert result == "254785271309"
+        assert error is None
 
     def test_254_with_leading_zero_after_strip(self):
         """254 stripped, leaving 9 digits (012345678) — kept as-is, already 9 digits."""
