@@ -24,13 +24,14 @@ from .config import (
 
 
 def normalize_phone(
-    raw: str | int | float,
+    raw: str | int | float | None,
     country_prefix: str = "254",
 ) -> tuple[str, str | None]:
     """Normalize a phone number to international format.
 
     Args:
-        raw: The raw phone number from Process Maker (string, int, or float).
+        raw: The raw phone number from Process Maker (string, int, float, or
+            an empty cell read by pandas as None/NaN).
         country_prefix: The country code to prepend (default "254" for Kenya).
 
     Returns:
@@ -48,6 +49,12 @@ def normalize_phone(
         >>> normalize_phone("123")
         ('', "Phone number '123' is not 9 digits after stripping prefixes")
     """
+    # An empty cell arrives as NaN (pandas makes the whole column float64 as
+    # soon as one phone is blank), and int(NaN) raises rather than returning a
+    # hard error — that would abort the upload instead of flagging one row.
+    if raw is None or (isinstance(raw, float) and pd.isna(raw)):
+        return ("", "Phone number is empty")
+
     # Convert to string if numeric
     raw_str = str(int(raw)) if isinstance(raw, float) else str(raw)
 
