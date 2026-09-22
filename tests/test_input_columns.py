@@ -91,16 +91,15 @@ class TestCanonicalizeInputColumns:
             {"caseid": ["C1"], "payphone_number": [254785271309],
              "service_provider": ["Safaricom"], "amount": [100]}
         )
-        df, mapping, _ = canonicalize_input_columns(raw)
+        df = canonicalize_input_columns(raw)
         assert "airtime_phone" in df.columns
         assert "network" in df.columns
         assert "payphone_number" in raw.columns  # caller's frame untouched
-        assert mapping["airtime_phone"] == "payphone_number"
 
     def test_identifier_column_passes_through(self):
         """Renaming must not disturb Account Name detection."""
         raw = pd.DataFrame({"caseid": ["C1"], "payphone_number": [254785271309]})
-        df, _, _ = canonicalize_input_columns(raw)
+        df = canonicalize_input_columns(raw)
         assert find_account_name_column(df.columns, None, frame=df) == "caseid"
 
     def test_renamed_file_validates(self):
@@ -113,7 +112,7 @@ class TestCanonicalizeInputColumns:
                 "amount": [100, 200],
             }
         )
-        df, _, _ = canonicalize_input_columns(raw)
+        df = canonicalize_input_columns(raw)
         report = validate(df, Settings())
         assert report.valid_rows == 2
         assert report.errors == []
@@ -164,7 +163,7 @@ class TestOverrides:
                 "zzz_value": [100],
             }
         )
-        df, _, _ = canonicalize_input_columns(
+        df = canonicalize_input_columns(
             raw,
             {
                 "airtime_phone": "zzz_contact",

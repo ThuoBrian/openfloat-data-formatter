@@ -106,7 +106,7 @@ def _select_columns(raw_df: pd.DataFrame) -> tuple[dict[str, str], str | None]:
         identifier is None when left on auto-detect, which leaves
         `Settings.account_name_column` unset so detection runs per file.
     """
-    detected, warnings = resolve_input_columns(raw_df.columns)
+    detected, _ = resolve_input_columns(raw_df.columns)
     detected_id = find_account_name_column(raw_df.columns, frame=raw_df)
     missing = [label for field, label in _MAPPABLE_FIELDS if field not in detected]
     if detected_id is None:
@@ -166,7 +166,16 @@ def _select_columns(raw_df: pd.DataFrame) -> tuple[dict[str, str], str | None]:
                 "blank for every row unless you pick one.]"
             )
 
-        for warning in warnings:
+        # Detection warnings describe guesses that are still standing, so
+        # recompute them against whatever the user corrected — a column they
+        # have already fixed should not keep warning about the original guess.
+        corrected = {
+            field: column
+            for field, column in chosen.items()
+            if column != detected.get(field)
+        }
+        _, live_warnings = resolve_input_columns(raw_df.columns, corrected)
+        for warning in live_warnings:
             st.caption(f":orange[{warning}]")
 
     still_missing = [
@@ -179,30 +188,6 @@ def _select_columns(raw_df: pd.DataFrame) -> tuple[dict[str, str], str | None]:
             + ". Every row will fail until you pick one under **Column mapping**."
         )
     return chosen, identifier
-
-
-def _show_column_mapping(column_map: dict[str, str]) -> None:
-    """Show which of the user's columns was read as which field.
-
-    Only renamed columns are worth showing — a file already using the
-    documented headers would otherwise get a table restating itself.
-    """
-    renamed = {
-        canonical: actual
-        for canonical, actual in column_map.items()
-        if actual != canonical
-    }
-    if not renamed:
-        return
-    st.caption("Columns read from your file:")
-    st.dataframe(
-        pd.DataFrame(
-            [{"In your file": actual, "Read as": canonical}
-             for canonical, actual in sorted(renamed.items())]
-        ),
-        hide_index=True,
-        use_container_width=True,
-    )
 
 
 def _preview_remark(df: pd.DataFrame, config: Settings) -> None:
@@ -297,10 +282,7 @@ def render_transform_page(country_prefix: str):
     # detection found and lets the user override it, which is what makes a
     # header nobody has seen before workable without a code change.
     column_choice, id_column = _select_columns(raw_df)
-    df, column_map, _column_warnings = canonicalize_input_columns(
-        raw_df, column_choice
-    )
-    _show_column_mapping(column_map)
+    df = canonicalize_input_columns(raw_df, column_choice)
 
     # --- Preview ---
     st.header("Data Preview")
@@ -510,9 +492,9 @@ def render_statement_report_page(country_prefix: str):
     if pm_file is not None:
         try:
             if Path(pm_file.name).suffix.lower() == ".csv":
-                input_df = canonicalize_input_columns(pd.read_csv(pm_file))[0]
+                input_df = canonicalize_input_columns(pd.read_csv(pm_file))
             else:
-                input_df = canonicalize_input_columns(pd.read_excel(pm_file))[0]
+                input_df = canonicalize_input_columns(pd.read_excel(pm_file))
         except Exception as e:
             st.error(f"Error reading Process Maker input: {e}")
             return

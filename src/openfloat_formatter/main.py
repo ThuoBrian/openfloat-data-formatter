@@ -171,9 +171,9 @@ async def _read_uploaded_file(file: UploadFile) -> pd.DataFrame:
     content = await file.read()
 
     if suffix == ".csv":
-        return canonicalize_input_columns(pd.read_csv(io.BytesIO(content)))[0]
+        return canonicalize_input_columns(pd.read_csv(io.BytesIO(content)))
     elif suffix in (".xlsx", ".xls", ".xlsm"):
-        return canonicalize_input_columns(pd.read_excel(io.BytesIO(content)))[0]
+        return canonicalize_input_columns(pd.read_excel(io.BytesIO(content)))
     else:
         raise HTTPException(
             status_code=400,

@@ -85,9 +85,9 @@ def _read_input(path: Path) -> pd.DataFrame:
     """
     suffix = path.suffix.lower()
     if suffix == ".csv":
-        return canonicalize_input_columns(pd.read_csv(str(path)))[0]
+        return canonicalize_input_columns(pd.read_csv(str(path)))
     elif suffix in (".xlsx", ".xls", ".xlsm"):
-        return canonicalize_input_columns(pd.read_excel(str(path)))[0]
+        return canonicalize_input_columns(pd.read_excel(str(path)))
     else:
         raise ValueError(
             f"Unsupported file format: '{suffix}'. "
