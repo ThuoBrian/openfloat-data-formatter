@@ -28,12 +28,7 @@ def transform(
     input_path: str | Path,
     config: Settings | None = None,
 ) -> TransformResult:
-    """Run the full transformation pipeline.
-
-    1. Read the input file (CSV or Excel)
-    2. Validate the data
-    3. Filter and transform valid rows
-    4. Write the output Excel file
+    """Read a Process Maker file and run the full transformation pipeline.
 
     Args:
         input_path: Path to the Process Maker CSV or Excel file.
@@ -43,27 +38,50 @@ def transform(
         A TransformResult containing the output BytesIO, validation report,
         and row counts.
     """
+    return transform_frame(_read_input(Path(input_path)), config)
+
+
+def transform_frame(
+    df: pd.DataFrame,
+    config: Settings | None = None,
+) -> TransformResult:
+    """Run the pipeline over a frame that has already been read.
+
+    1. Validate the data
+    2. Filter and transform valid rows
+    3. Write the output Excel file
+
+    Separate from `transform` so a caller holding a frame can hand over the
+    one it is actually showing. The Streamlit app resolves columns against the
+    user's own picks before anything reads the frame; re-reading the file here
+    would canonicalize it a second time with detection only, and quietly build
+    the upload from a mapping the user had already corrected on screen.
+
+    Args:
+        df: The input frame, already canonicalized by
+            `normalizer.canonicalize_input_columns`.
+        config: Optional settings override. Uses global defaults if None.
+
+    Returns:
+        A TransformResult containing the output BytesIO, validation report,
+        and row counts.
+    """
     if config is None:
         config = settings
 
-    input_path = Path(input_path)
-
-    # Step 1: Read input file
-    df = _read_input(input_path)
-
-    # Step 2: Validate
+    # Step 1: Validate
     report = validate(df, config)
 
-    # Step 3: Build output rows (skip rows with hard errors)
+    # Step 2: Build output rows (skip rows with hard errors)
     output_rows, _error_row_indices = _build_output_rows(df, config)
 
     # Update report with final valid count
     report.valid_rows = len(output_rows)
 
-    # Step 4: Load Allowed Types from reference template
+    # Step 3: Load Allowed Types from reference template
     allowed_types = load_allowed_types(config.openfloat_template_path)
 
-    # Step 5: Write output Excel — when every row was filtered out there is
+    # Step 4: Write output Excel — when every row was filtered out there is
     # nothing to upload, so signal that with output=None rather than shipping
     # an empty Accounts sheet (the API's 422 and the UI's "no output" branch
     # both rely on this).

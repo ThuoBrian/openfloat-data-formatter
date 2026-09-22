@@ -1,8 +1,53 @@
 """Tests for the transformer module — end-to-end transformation pipeline."""
 
 
-from openfloat_formatter.normalizer import parse_case_remark
-from openfloat_formatter.transformer import _build_output_rows, transform
+import pandas as pd
+
+from openfloat_formatter.normalizer import canonicalize_input_columns, parse_case_remark
+from openfloat_formatter.transformer import _build_output_rows, transform, transform_frame
+
+
+class TestTransformFrame:
+    """The frame entry point: what is on screen is what gets written."""
+
+    def test_frame_with_overridden_columns_produces_output(self, default_config):
+        """The bug: the user's column picks have to reach the workbook.
+
+        Reading the file again inside the pipeline canonicalized it a second
+        time with detection only, so a header the user had pointed at by hand
+        was never found and every row failed.
+        """
+        raw = pd.DataFrame(
+            {
+                "caseid": ["C1", "C2"],
+                "zzz_contact": ["712345678", "798765432"],
+                "zzz_telco": ["Safaricom", "Airtel"],
+                "zzz_value": [150, 200],
+            }
+        )
+        overrides = {
+            "airtime_phone": "zzz_contact",
+            "network": "zzz_telco",
+            "amount": "zzz_value",
+        }
+        result = transform_frame(
+            canonicalize_input_columns(raw, overrides), default_config
+        )
+        assert result.output_row_count == 2
+        assert result.validation_report.errors == []
+
+    def test_same_result_as_reading_the_file(self, tmp_path, minimal_df, default_config):
+        """`transform` is `transform_frame` with a read in front of it."""
+        path = tmp_path / "input.csv"
+        minimal_df.to_csv(path, index=False)
+        from_path = transform(path, default_config)
+        from_frame = transform_frame(
+            canonicalize_input_columns(pd.read_csv(path)), default_config
+        )
+        assert from_path.output_row_count == from_frame.output_row_count
+        assert len(from_path.validation_report.errors) == len(
+            from_frame.validation_report.errors
+        )
 
 
 class TestTransformWithSampleData:

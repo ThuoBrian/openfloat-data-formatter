@@ -12,6 +12,10 @@ like "SPA NAKURU RURAL ").
 `write_finance_workbook` produces what finance posts: one Debit column holding
 only money that actually moved, with the failures shaded rather than dropped.
 
+`write_rejected_rows_workbook` produces the worklist that goes back to
+whoever compiled the export: the rows that could not be uploaded, with their
+original headers and the reason each was left out.
+
 `write_statement_workbook` produces the *report* on what happened afterwards:
 Successful and Unsuccessful sheets, plus the reconciliation buckets when the
 statement was matched against a Process Maker input. Every sheet ends in a bold
@@ -26,11 +30,18 @@ from pathlib import Path
 from typing import overload
 
 import openpyxl
+import pandas as pd
 from openpyxl.styles import Font, PatternFill
 from openpyxl.worksheet.worksheet import Worksheet
 
 from .config import OPENFLOAT_ACCOUNTS_COLUMNS
-from .models import OutputRow, ReconciliationEntry, StatementReport, StatementTransaction
+from .models import (
+    OutputRow,
+    ReconciliationEntry,
+    StatementReport,
+    StatementTransaction,
+    ValidationReport,
+)
 
 # Leading characters that Excel/openpyxl treat as the start of a formula.
 _FORMULA_TRIGGER_CHARS = ("=", "+", "-", "@")
@@ -77,6 +88,10 @@ _TOTAL_LABEL = "TOTAL"
 # the total is not simply everything that was uploaded.
 _FINANCE_COLUMNS = ("Date", "Account Name", "Phone", "Case", "Status", "Debit")
 _FINANCE_SHEET = "Finance Reconciliation"
+
+_REJECTED_SHEET = "Rows To Fix"
+_REJECTED_ROW_COLUMN = "Row"
+_REJECTED_REASON_COLUMN = "Why it was left out"
 # Excel's own "Bad" styling. Chosen over a colour of our own because it still
 # reads as flagged in greyscale, which a finance attachment often gets printed in.
 _FLAGGED_FILL = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
@@ -246,6 +261,7 @@ def _write_sheet(
     amount_columns: Sequence[str] = (),
     phone_columns: Sequence[str] = (),
     flag_row: Callable[[Sequence[object]], bool] | None = None,
+    totals: bool = True,
 ) -> None:
     """Write one sheet: bold header, the rows, then a bold TOTAL row.
 
@@ -257,6 +273,9 @@ def _write_sheet(
     Args:
         flag_row: Optional predicate; rows it returns True for are shaded as
             needing attention, without changing what they contribute to a total.
+        totals: Write the TOTAL footer. False for a sheet that has nothing to
+            sum — the rejected-rows list is a worklist, where a bold TOTAL over
+            blank columns reads as a broken sheet rather than a figure.
     """
     header_font = Font(bold=True)
     worksheet.append(list(columns))
@@ -285,7 +304,7 @@ def _write_sheet(
                 cell.fill = _FLAGGED_FILL
                 cell.font = _FLAGGED_FONT
 
-    if not rows:
+    if not rows or not totals:
         return
 
     total_row: list[object] = [""] * len(columns)
@@ -447,4 +466,55 @@ def write_finance_workbook(report: StatementReport) -> BytesIO:
         phone_columns=("Phone",),
         flag_row=lambda row: row[debit_index] is None,
     )
+    return _to_buffer(workbook)
+
+
+def write_rejected_rows_workbook(
+    raw_df: pd.DataFrame,
+    report: ValidationReport,
+) -> BytesIO:
+    """Write the rows that could not be uploaded, with the reason for each.
+
+    This is the file a user forwards to whoever compiled the export, so it
+    carries **their** headers and values, not the canonical names this package
+    renames them to — pass the frame as it was read, before
+    `normalizer.canonicalize_input_columns`.
+
+    `ValidationIssue.row_number` is already the Excel row the user sees (the
+    validator counts from 2, past the header), so the Row column lines up with
+    their own spreadsheet and needs no translation.
+
+    Args:
+        raw_df: The input frame as read from the file, with its own headers.
+        report: The validation report whose errors name the rejected rows.
+
+    Returns:
+        A BytesIO positioned at 0, ready for `st.download_button`.
+    """
+    reasons: dict[int, list[str]] = {}
+    for issue in report.errors:
+        reasons.setdefault(issue.row_number, []).append(issue.message)
+
+    columns = [
+        _REJECTED_ROW_COLUMN,
+        *(str(column) for column in raw_df.columns),
+        _REJECTED_REASON_COLUMN,
+    ]
+    rows: list[list[object]] = []
+    for row_number in sorted(reasons):
+        index = row_number - 2  # the validator counts from 2, past the header
+        if not 0 <= index < len(raw_df):
+            continue
+        # An empty cell reads back as NaN, which openpyxl would write as a
+        # literal nan — blank is what the person fixing the row expects to see.
+        values = [
+            "" if pd.isna(value) else value
+            for value in raw_df.iloc[index].tolist()
+        ]
+        rows.append([row_number, *values, "; ".join(reasons[row_number])])
+
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+    sheet.title = _REJECTED_SHEET
+    _write_sheet(sheet, columns, rows, totals=False)
     return _to_buffer(workbook)

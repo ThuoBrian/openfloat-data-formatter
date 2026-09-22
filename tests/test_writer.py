@@ -4,11 +4,13 @@ import openpyxl
 import pytest
 
 from openfloat_formatter.models import OutputRow
+from openfloat_formatter.validator import validate
 from openfloat_formatter.writer import (
     _as_phone_number,
     _sanitize_cell_value,
     load_allowed_types,
     write_openfloat_excel,
+    write_rejected_rows_workbook,
 )
 
 
@@ -220,3 +222,70 @@ class TestSanitizeCellValue:
 
     def test_leaves_non_string_untouched(self):
         assert _sanitize_cell_value(150.0) == 150.0
+
+
+class TestRejectedRowsWorkbook:
+    """The worklist handed back to whoever compiled the export."""
+
+    @pytest.fixture
+    def rejected(self, minimal_df, default_config):
+        """minimal_df with row 3 carrying an unusable phone."""
+        raw = minimal_df.copy()
+        raw.loc[1, "airtime_phone"] = "12345"
+        return raw, validate(raw, default_config)
+
+    def test_keeps_the_users_own_headers(self, rejected):
+        raw, report = rejected
+        sheet = openpyxl.load_workbook(write_rejected_rows_workbook(raw, report)).active
+        header = [cell.value for cell in sheet[1]]
+        assert header[0] == "Row"
+        assert header[-1] == "Why it was left out"
+        assert "airtime_phone" in header
+        assert "unique_id" in header
+
+    def test_row_number_matches_the_spreadsheet(self, rejected):
+        """The validator counts from 2, past the header — so does Excel."""
+        raw, report = rejected
+        sheet = openpyxl.load_workbook(write_rejected_rows_workbook(raw, report)).active
+        assert sheet.max_row == 2  # header + the one rejected row
+        assert sheet.cell(row=2, column=1).value == 3
+
+    def test_reason_is_filled_in(self, rejected):
+        raw, report = rejected
+        sheet = openpyxl.load_workbook(write_rejected_rows_workbook(raw, report)).active
+        reason = sheet.cell(row=2, column=sheet.max_column).value
+        assert reason
+        assert "phone" in reason.lower()
+
+    def test_no_total_row(self, rejected):
+        """A bold TOTAL over a worklist reads as a broken sheet."""
+        raw, report = rejected
+        sheet = openpyxl.load_workbook(write_rejected_rows_workbook(raw, report)).active
+        assert [cell.value for cell in sheet["A"]] == ["Row", 3]
+
+    def test_formula_injection_is_defused(self, minimal_df, default_config):
+        raw = minimal_df.copy()
+        raw.loc[1, "airtime_phone"] = "12345"
+        raw.loc[1, "unique_id"] = "=cmd|'/c calc'!A1"
+        report = validate(raw, default_config)
+        sheet = openpyxl.load_workbook(write_rejected_rows_workbook(raw, report)).active
+        written = [cell.value for cell in sheet[2]]
+        assert "'=cmd|'/c calc'!A1" in written
+
+    def test_empty_cell_is_blank_not_nan(self, minimal_df, default_config):
+        raw = minimal_df.copy()
+        raw.loc[1, "airtime_phone"] = None
+        report = validate(raw, default_config)
+        sheet = openpyxl.load_workbook(write_rejected_rows_workbook(raw, report)).active
+        assert all(
+            cell.value is None or "nan" not in str(cell.value).lower()
+            for cell in sheet[2]
+        )
+
+    def test_clean_file_gets_header_only(self, minimal_df, default_config):
+        report = validate(minimal_df, default_config)
+        assert report.errors == []
+        sheet = openpyxl.load_workbook(
+            write_rejected_rows_workbook(minimal_df, report)
+        ).active
+        assert sheet.max_row == 1

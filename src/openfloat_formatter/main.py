@@ -16,7 +16,6 @@ Endpoints:
 from __future__ import annotations
 
 import io
-import tempfile
 from pathlib import Path
 from typing import Annotated
 
@@ -29,7 +28,7 @@ from .config import Settings, settings
 from .models import StatementReport, ValidationReport
 from .normalizer import canonicalize_input_columns
 from .statement import build_statement_report
-from .transformer import transform
+from .transformer import transform_frame
 from .validator import validate as run_validation
 
 app = FastAPI(
@@ -104,19 +103,12 @@ async def transform_file(
     output 'Account Name'; omit it to detect the column from the headers.
     `project_code` completes a short `C#<case>` reference into the full Remark.
     """
-    # Save uploaded file to temp location
-    with tempfile.NamedTemporaryFile(
-        delete=False, suffix=Path(file.filename or "").suffix
-    ) as tmp:
-        content = await file.read()
-        tmp.write(content)
-        tmp_path = tmp.name
-
-    try:
-        result = transform(tmp_path, _request_config(account_name_column, project_code))
-    finally:
-        # Clean up temp file
-        Path(tmp_path).unlink(missing_ok=True)
+    # Read straight into a frame: an upload can carry names, phone numbers and
+    # staff IDs, and a temp file would put them on disk for the duration.
+    frame = await _read_uploaded_file(file)
+    result = transform_frame(
+        frame, _request_config(account_name_column, project_code)
+    )
 
     if result.output is None:
         raise HTTPException(

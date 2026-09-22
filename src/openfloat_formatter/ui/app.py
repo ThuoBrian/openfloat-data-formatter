@@ -20,7 +20,7 @@ import pandas as pd
 import streamlit as st
 
 from openfloat_formatter.config import DEFAULT_TEMPLATE_PATH, Settings
-from openfloat_formatter.models import StatementReport
+from openfloat_formatter.models import StatementReport, ValidationIssue, ValidationReport
 from openfloat_formatter.normalizer import (
     canonicalize_input_columns,
     find_account_name_column,
@@ -34,9 +34,13 @@ from openfloat_formatter.remark import (
     find_project_code_column,
 )
 from openfloat_formatter.statement import build_statement_report
-from openfloat_formatter.transformer import transform
-from openfloat_formatter.validator import remark_context, validate
-from openfloat_formatter.writer import write_finance_workbook, write_statement_workbook
+from openfloat_formatter.transformer import transform_frame
+from openfloat_formatter.validator import remark_context
+from openfloat_formatter.writer import (
+    write_finance_workbook,
+    write_rejected_rows_workbook,
+    write_statement_workbook,
+)
 
 
 def main():
@@ -59,11 +63,15 @@ def main():
         help="Transform builds OpenFloat uploads; Statement Report analyses "
         "the statements OpenFloat produced after a disbursement",
     )
-    country_prefix = st.sidebar.text_input(
-        "Country prefix",
-        value="254",
-        help="Country code prepended to phone numbers",
-    )
+    # Free text that silently corrupts every phone number in a batch if it is
+    # mistyped, on a tool only used for Kenyan numbers — it belongs out of the
+    # way, not beside the upload button.
+    with st.sidebar.expander("Advanced settings"):
+        country_prefix = st.text_input(
+            "Country prefix",
+            value="254",
+            help="Country code prepended to phone numbers",
+        )
 
     if mode == "Transform":
         render_transform_page(country_prefix)
@@ -72,6 +80,8 @@ def main():
 
 
 AUTO_DETECT = "(auto-detect)"
+
+XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 
 # The fields worth letting a user map by hand, with the plain-English label
@@ -85,6 +95,52 @@ _MAPPABLE_FIELDS = (
 )
 
 _NOT_PRESENT = "— not in this file —"
+
+# Validation issues name the canonical field, which is our word for it, not the
+# user's. Anything unlisted falls through to the raw name rather than hiding.
+_FIELD_LABELS = {
+    **dict(_MAPPABLE_FIELDS),
+    "account_name": "ID (Account Name)",
+    "case_remark": "Case reference",
+    "project_code": "Project code",
+}
+
+
+def _issue_table(issues: Sequence[ValidationIssue]) -> pd.DataFrame:
+    """Validation issues as a table, with our field names put into theirs."""
+    return pd.DataFrame(
+        [
+            {
+                "Row": issue.row_number,
+                "Column": _FIELD_LABELS.get(issue.field, issue.field),
+                "Problem": issue.message,
+            }
+            for issue in issues
+        ]
+    )
+
+
+@st.cache_data(show_spinner="Preparing your file...")
+def _prepare_upload(
+    frame: pd.DataFrame, settings_json: str
+) -> tuple[bytes | None, ValidationReport, int]:
+    """Build the OpenFloat workbook, once per (frame, settings) combination.
+
+    Without the cache this reruns on every keystroke in the Project code box,
+    rewriting the whole workbook each time. Settings arrive as JSON because
+    Streamlit hashes the arguments to decide what is a cache hit, and a
+    Pydantic model is not something it knows how to hash.
+
+    Deliberately **not** `persist="disk"`: the frame holds names, phone numbers
+    and staff IDs, and that cache would write them under the user's home
+    directory. In memory it lives exactly as long as the session does.
+    """
+    result = transform_frame(frame, Settings.model_validate_json(settings_json))
+    return (
+        result.output.getvalue() if result.output is not None else None,
+        result.validation_report,
+        result.output_row_count,
+    )
 
 
 def _select_columns(raw_df: pd.DataFrame) -> tuple[dict[str, str], str | None]:
@@ -120,10 +176,15 @@ def _select_columns(raw_df: pd.DataFrame) -> tuple[dict[str, str], str | None]:
             "Your export can name these columns anything. We guess from the "
             "header; correct any that are wrong."
         )
-        options = [_NOT_PRESENT, *(str(column) for column in raw_df.columns)]
+        columns = [str(column) for column in raw_df.columns]
         chosen: dict[str, str] = {}
         for field, label in _MAPPABLE_FIELDS:
             current = detected.get(field)
+            # The sentinel is offered only when there is genuinely nothing to
+            # point at. Selecting it for a column that was found used to drop
+            # the field, let detection quietly find it again downstream, and
+            # still show a red error saying every row would fail.
+            options = columns if current in columns else [_NOT_PRESENT, *columns]
             selection = st.selectbox(
                 label,
                 options,
@@ -244,17 +305,20 @@ def _select_project_code(df: pd.DataFrame) -> str | None:
 
 
 def render_transform_page(country_prefix: str):
-    """Existing pipeline: upload → validate → transform → download."""
+    """Upload → check columns → fix problems → download, as four numbered steps."""
     # --- Sidebar: transform-specific configuration ---
-    st.sidebar.header("Configuration")
-    amount_threshold = st.sidebar.number_input(
-        "Max amount threshold (KES)",
-        min_value=0,
-        value=10_000,
-        help="Warn when airtime amount exceeds this value",
-    )
-    # --- File Upload ---
-    st.header("Upload Process Maker File")
+    # Tucked away: a threshold nobody changes per upload, sitting next to the
+    # upload button, reads like something that has to be decided first.
+    with st.sidebar.expander("Advanced settings"):
+        amount_threshold = st.number_input(
+            "Max amount threshold (KES)",
+            min_value=0,
+            value=10_000,
+            help="Warn when airtime amount exceeds this value",
+        )
+
+    # --- Step 1: upload ---
+    st.header("Step 1 — Upload your file")
     uploaded_file = st.file_uploader(
         "Choose a CSV or Excel file",
         type=["csv", "xlsx", "xls", "xlsm"],
@@ -262,10 +326,9 @@ def render_transform_page(country_prefix: str):
     )
 
     if uploaded_file is None:
-        st.info("Upload a file to get started.")
+        st.info("Upload a file to get started. It stays on this computer.")
         return
 
-    # --- Read file ---
     try:
         suffix = Path(uploaded_file.name).suffix.lower()
         raw_df = (
@@ -277,21 +340,20 @@ def render_transform_page(country_prefix: str):
         st.error(f"Error reading file: {e}")
         return
 
+    # --- Step 2: columns ---
     # Exports rename these columns per run, so resolve them to the canonical
     # names before anything reads the frame. The picker pre-selects whatever
     # detection found and lets the user override it, which is what makes a
     # header nobody has seen before workable without a code change.
+    st.header("Step 2 — Check the columns")
     column_choice, id_column = _select_columns(raw_df)
     df = canonicalize_input_columns(raw_df, column_choice)
 
-    # --- Preview ---
-    st.header("Data Preview")
     st.markdown(f"**{len(df)} rows** × **{len(df.columns)} columns**")
     st.dataframe(df.head(10), use_container_width=True)
 
     project_code = _select_project_code(df)
 
-    # --- Configuration ---
     config = Settings(
         max_amount_threshold=amount_threshold,
         default_country_prefix=country_prefix,
@@ -302,100 +364,74 @@ def render_transform_page(country_prefix: str):
 
     _preview_remark(df, config)
 
-    # --- Validate ---
-    st.header("Validation Report")
+    # The frame on screen is the frame the workbook is built from — anything
+    # that re-read the file here would drop the column choices made above.
+    try:
+        output_bytes, report, output_row_count = _prepare_upload(
+            df, config.model_dump_json()
+        )
+    except Exception as e:
+        st.error(f"Transformation error: {e}")
+        return
 
-    with st.spinner("Validating..."):
-        report = validate(df, config)
+    # --- Step 3: problems ---
+    st.header("Step 3 — Fix any problems")
 
-    # Summary metrics
     col1, col2, col3 = st.columns(3)
-    col1.metric("Total Rows", report.total_rows)
-    col2.metric("Valid Rows", report.valid_rows)
-    col3.metric("Filtered Rows", report.total_rows - report.valid_rows)
+    col1.metric("Rows in your file", report.total_rows)
+    col2.metric("Ready for OpenFloat", report.valid_rows)
+    col3.metric("Left out", report.total_rows - report.valid_rows)
 
-    # Filtered breakdown
-    if report.filtered_counts.invalid_phone > 0 or \
-       report.filtered_counts.invalid_amount > 0 or \
-       report.filtered_counts.unmapped_network > 0:
-        with st.expander("Filter Breakdown", expanded=True):
-            if report.filtered_counts.invalid_phone > 0:
-                st.write(f"📞 Invalid phone: **{report.filtered_counts.invalid_phone}**")
-            if report.filtered_counts.invalid_amount > 0:
-                st.write(f"💰 Invalid amount: **{report.filtered_counts.invalid_amount}**")
-            if report.filtered_counts.unmapped_network > 0:
-                st.write(f"📡 Unmapped network: **{report.filtered_counts.unmapped_network}**")
-
-    # Errors
     if report.errors:
-        with st.expander(f"❌ Errors ({len(report.errors)})", expanded=False):
-            error_df = pd.DataFrame(
-                [
-                    {
-                        "Row": e.row_number,
-                        "Field": e.field,
-                        "Message": e.message,
-                    }
-                    for e in report.errors
-                ]
+        with st.expander(f"❌ Rows that will be left out ({len(report.errors)})",
+                         expanded=True):
+            st.dataframe(_issue_table(report.errors), use_container_width=True)
+            st.download_button(
+                label="📤 Download the rows that need fixing",
+                data=write_rejected_rows_workbook(raw_df, report).getvalue(),
+                file_name=Path(uploaded_file.name).stem + "_rows_to_fix.xlsx",
+                mime=XLSX_MIME,
+                help="Send this to whoever compiled the file — it has their own "
+                "columns plus the reason each row was left out.",
             )
-            st.dataframe(error_df, use_container_width=True)
 
-    # Warnings
+    counts = report.filtered_counts
+    if counts.invalid_phone or counts.invalid_amount or counts.unmapped_network:
+        with st.expander("Why rows were left out", expanded=False):
+            if counts.invalid_phone:
+                st.write(f"📞 Invalid phone: **{counts.invalid_phone}**")
+            if counts.invalid_amount:
+                st.write(f"💰 Invalid amount: **{counts.invalid_amount}**")
+            if counts.unmapped_network:
+                st.write(f"📡 Unrecognised network: **{counts.unmapped_network}**")
+
     if report.warnings:
-        with st.expander(f"⚠️ Warnings ({len(report.warnings)})", expanded=False):
-            warning_df = pd.DataFrame(
-                [
-                    {
-                        "Row": w.row_number,
-                        "Field": w.field,
-                        "Message": w.message,
-                    }
-                    for w in report.warnings
-                ]
-            )
-            st.dataframe(warning_df, use_container_width=True)
+        with st.expander(f"⚠️ Worth checking ({len(report.warnings)})", expanded=False):
+            st.dataframe(_issue_table(report.warnings), use_container_width=True)
 
     if not report.errors and not report.warnings:
-        st.success("✅ All rows are valid!")
+        st.success("✅ Every row in this file can be uploaded.")
 
-    # --- Transform & Download ---
-    st.header("Transform & Download")
+    # --- Step 4: download ---
+    st.header("Step 4 — Download your upload file")
 
-    # Save uploaded file to a temp location for the transformer
-    with st.spinner("Transforming..."):
-        import tempfile
-
-        with tempfile.NamedTemporaryFile(
-            delete=False, suffix=suffix
-        ) as tmp:
-            tmp.write(uploaded_file.getvalue())
-            tmp_path = tmp.name
-
-        try:
-            result = transform(tmp_path, config)
-        except Exception as e:
-            st.error(f"Transformation error: {e}")
-            return
-        finally:
-            Path(tmp_path).unlink(missing_ok=True)
-
-    if result.output is not None:
-        result.output.seek(0)
-        output_filename = Path(uploaded_file.name).stem + "_openfloat.xlsx"
-
-        st.download_button(
-            label="📥 Download OpenFloat Excel",
-            data=result.output.getvalue(),
-            file_name=output_filename,
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    if output_bytes is None:
+        st.error(
+            "There is nothing to download — every row was left out. Fix the rows "
+            "above and upload the file again."
         )
-        st.info(f"**{result.output_row_count} rows** written to the Accounts sheet.")
-    else:
-        st.error("No output was generated. All rows were filtered out due to errors.")
+        return
 
-
-XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    st.download_button(
+        label=f"📥 Download {output_row_count} rows for OpenFloat",
+        data=output_bytes,
+        file_name=Path(uploaded_file.name).stem + "_openfloat.xlsx",
+        mime=XLSX_MIME,
+    )
+    st.caption(
+        "Next: upload this file to OpenFloat. When the disbursement finishes, "
+        "come back and use **Statement Report** mode to check what went through."
+    )
 
 
 def _download_name(statement_files: Sequence[Any], suffix: str, fallback: str) -> str:

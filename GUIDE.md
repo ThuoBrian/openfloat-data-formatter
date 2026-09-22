@@ -61,22 +61,34 @@ The app has two modes — switch between them in the sidebar on the left.
 
 ### Transform mode (prepare an upload)
 
-1. Upload your Process Maker CSV or Excel export.
-2. Check the **Identifier Column** the app picked — this is the column that
-   becomes `Account Name` in OpenFloat (your `Staff ID`, `Respondent ID`, or
-   whatever this export calls it). The app guesses it from the headers and
-   shows you a couple of example values; if the guess is wrong, choose the
-   right column from the dropdown.
-3. If your file's `case_remark` is just a case number (e.g. `C# 38305`), type
-   the **Project code** (e.g. `22505AA`) when the app asks. It uses that to
-   build the full reference — `C#38305 22505AA RESP AIRTIME-KSH28000 g06` —
-   where the amount is the total for that case across the file. Without it the
-   Remark stays as the short case number.
-4. Check the **Data Preview** and **Validation Report** — this tells you how
-   many rows are valid and flags anything wrong (bad phone numbers,
-   unrecognized networks, duplicate numbers, etc.).
-5. Click **Download OpenFloat Excel** to get the file ready for upload to
-   OpenFloat.
+The page walks through four numbered steps.
+
+1. **Step 1 — Upload your file.** Your Process Maker CSV or Excel export.
+2. **Step 2 — Check the columns.** Your export can name its columns anything,
+   so the app guesses which is the phone number, the network, the amount, and
+   the ID that becomes `Account Name` in OpenFloat (your `Staff ID`,
+   `Respondent ID`, or whatever this export calls it). The **Column mapping**
+   panel shows what it guessed, along with example values for the ID column.
+   It stays closed when everything was found and opens by itself when
+   something is missing — correct any dropdown that is wrong.
+   - If your file's `case_remark` is just a case number (e.g. `C# 38305`),
+     type the **Project code** (e.g. `22505AA`) when the app asks. It uses
+     that to build the full reference —
+     `C#38305 22505AA RESP AIRTIME-KSH28000 g06` — where the amount is the
+     total for that case across the file. Without it the Remark stays as the
+     short case number.
+3. **Step 3 — Fix any problems.** Three figures: how many rows are in your
+   file, how many are ready for OpenFloat, and how many will be left out.
+   Rows that will be left out are listed with the reason (bad phone number,
+   unrecognized network, and so on). Click **Download the rows that need
+   fixing** to get those rows as a spreadsheet — with your own column headers
+   and a "Why it was left out" column — and send it to whoever compiled the
+   file. The **Row** numbers match the row numbers in your own spreadsheet.
+4. **Step 4 — Download your upload file.** The button says how many rows are
+   in it, so a partial file is never mistaken for a complete one.
+
+Settings you rarely need — the country prefix and the high-amount warning
+threshold — sit under **Advanced settings** in the sidebar.
 
 ### Statement Report mode (check what actually happened)
 
