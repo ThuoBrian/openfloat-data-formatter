@@ -125,7 +125,8 @@ The package is installed editable via `uv sync` (pyproject + uv.lock are the sin
 **Other directories:**
 
 - `scripts/` — one-off/maintenance scripts, e.g. `generate_processmaker_template.py` (regenerates `docs/processmaker-input-template.xlsx`)
-- `install/`, plus `run.bat`/`start.bat`/`start.sh` at the repo root — installer/launcher scripts for non-technical users (all uv-based)
+- `install/` plus `run.bat` at the repo root — the installer and launcher non-technical users actually touch: `install.ps1` ends by running `run.bat`, and GUIDE.md tells staff to double-click it. It installs uv if missing, syncs with `--no-dev`, and pauses on failure so the console window does not vanish
+- `start.bat`/`start.sh` at the repo root — the **developer** launchers (`api`/`ui`/`both`), documented in README.md. Everything they start binds to `127.0.0.1`: the API has no authentication, and both surfaces take uploads carrying names, phone numbers and staff IDs, so neither is ever served to a network. Streamlit and uvicorn both bind all interfaces unless told otherwise, so `--server.address`/`--host` are load-bearing, not decoration
 - `docs/` — reference data files (table above) plus `GOTCHA.md` — development pitfalls and non-obvious behaviors; read it before debugging surprising pandas/openpyxl/template behavior
 - `.github/` — GitHub metadata: `PULL_REQUEST_TEMPLATE.md`, CI workflow (ruff + mypy on Ubuntu, pytest on Ubuntu + Windows)
 
@@ -140,8 +141,8 @@ uv run pytest tests/test_normalizer.py -v    # Run single test module
 uv run pytest -k "test_phone" -v              # Run tests by name pattern
 uv run ruff check .                           # Lint (CI runs this; config in pyproject.toml)
 uv run mypy                                   # Type-check src + tests (CI runs this)
-uv run uvicorn openfloat_formatter.main:app --reload   # Run FastAPI server (port 8000)
-uv run streamlit run src/openfloat_formatter/ui/app.py  # Run Streamlit UI (port 8501)
+uv run uvicorn openfloat_formatter.main:app --reload --host 127.0.0.1   # FastAPI (port 8000)
+uv run streamlit run src/openfloat_formatter/ui/app.py --server.address=127.0.0.1  # UI (8501)
 uv run python scripts/generate_processmaker_template.py # Regenerate docs/processmaker-input-template.xlsx
 ```
 
