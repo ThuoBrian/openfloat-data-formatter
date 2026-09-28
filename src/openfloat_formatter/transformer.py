@@ -39,7 +39,10 @@ def transform(
         A TransformResult containing the output BytesIO, validation report,
         and row counts.
     """
-    return transform_frame(_read_input(Path(input_path)), config)
+    path = Path(input_path)
+    return transform_frame(
+        canonicalize_input_columns(read_input_file(path, path.name)), config
+    )
 
 
 def transform_frame(
@@ -125,11 +128,6 @@ def read_input_file(source: Any, file_name: str) -> pd.DataFrame:
     raise ValueError(
         f"Unsupported file format: '{suffix}'. Expected .csv, .xlsx, .xls, or .xlsm."
     )
-
-
-def _read_input(path: Path) -> pd.DataFrame:
-    """Read an input file from disk, with its columns canonicalized."""
-    return canonicalize_input_columns(read_input_file(path, path.name))
 
 
 def _build_output_rows(

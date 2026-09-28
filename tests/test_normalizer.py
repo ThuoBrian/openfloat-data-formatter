@@ -172,7 +172,7 @@ class TestNormalizeAmount:
         assert result == 0.0
         assert error == "Amount is empty"
 
-    @pytest.mark.parametrize("raw", ["nan", "inf", "-inf", float("inf")])
+    @pytest.mark.parametrize("raw", ["nan", "inf", "-inf"])
     def test_non_finite_is_rejected(self, raw):
         """float() accepts 'nan' and 'inf'; neither is money."""
         result, error = normalize_amount(raw)

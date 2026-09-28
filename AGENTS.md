@@ -134,7 +134,7 @@ The package is installed editable via `uv sync` (pyproject + uv.lock are the sin
 
 ## Build & Run Commands
 
-All commands run via uv (`uv sync` installs `.venv` with the package editable + dev tools; no activation or PYTHONPATH needed). The `justfile` wraps the common ones — `just sync`, `just ui`, `just api`, `just both`, `just test [pytest args]`, `just lint`, `just typecheck`, `just check` (all three gates, as CI runs them), `just template`. CI calls uv directly, so a recipe must stay a thin wrapper over a command listed here; change both together.
+All commands run via uv (`uv sync` installs `.venv` with the package editable + dev tools; no activation or PYTHONPATH needed). The `justfile` wraps these (`just --list` shows the recipes); CI calls uv directly, so recipes stay thin wrappers.
 
 ```bash
 uv sync --python 3.12                        # Set up / refresh the environment
