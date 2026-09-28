@@ -6,6 +6,7 @@ import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
 
+from openfloat_formatter import main
 from openfloat_formatter.main import app
 
 XLSX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -33,6 +34,43 @@ class TestHealth:
         response = client.get("/health")
         assert response.status_code == 200
         assert response.json() == {"status": "ok"}
+
+
+class TestNoCors:
+    """No browser origin is allowed to call the API."""
+
+    def test_no_allow_origin_header(self, client):
+        """A wildcard origin would let any web page post files to localhost."""
+        response = client.get("/health", headers={"Origin": "https://example.com"})
+        assert "access-control-allow-origin" not in response.headers
+
+
+class TestUploadSizeLimit:
+    """Oversized uploads are refused before they are parsed."""
+
+    def test_oversized_input_is_413(self, client, minimal_df, monkeypatch):
+        monkeypatch.setattr(main, "MAX_UPLOAD_BYTES", 10)
+        response = client.post(
+            "/validate",
+            files={"file": ("input.csv", _csv_bytes(minimal_df), "text/csv")},
+        )
+        assert response.status_code == 413
+
+    def test_oversized_statement_is_413(self, client, make_statement_workbook, monkeypatch):
+        monkeypatch.setattr(main, "MAX_UPLOAD_BYTES", 10)
+        response = client.post(
+            "/statement-report",
+            files={"statement_files": ("s.xlsx", make_statement_workbook().getvalue())},
+        )
+        assert response.status_code == 413
+
+    def test_upload_at_the_limit_is_accepted(self, client, minimal_df, monkeypatch):
+        content = _csv_bytes(minimal_df)
+        monkeypatch.setattr(main, "MAX_UPLOAD_BYTES", len(content))
+        response = client.post(
+            "/validate", files={"file": ("input.csv", content, "text/csv")}
+        )
+        assert response.status_code == 200
 
 
 class TestValidate:

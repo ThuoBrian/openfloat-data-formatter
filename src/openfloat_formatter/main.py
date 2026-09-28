@@ -21,7 +21,6 @@ from typing import Annotated
 
 import pandas as pd
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
 from .config import Settings, settings
@@ -37,16 +36,13 @@ app = FastAPI(
     version="0.1.0",
 )
 
-# CORS for browser-based API clients. The bundled Streamlit UI does not call
-# this API (it imports the pipeline modules directly); the API exists for
-# external/scripted consumers.
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# No CORS middleware, on purpose: nothing calls this API from a browser (the
+# Streamlit UI imports the pipeline directly), and a wildcard origin would let
+# any web page the user visits post files to it on localhost.
+
+# Real exports are a few hundred KB; this only stops a runaway upload from
+# being parsed into memory.
+MAX_UPLOAD_BYTES = 20 * 1024 * 1024
 
 
 def _request_config(
@@ -146,7 +142,7 @@ async def statement_report(
     """
     input_df = await _read_uploaded_file(input_file) if input_file else None
     report = build_statement_report(
-        [io.BytesIO(await statement_file.read()) for statement_file in statement_files],
+        [io.BytesIO(await _read_upload_bytes(upload)) for upload in statement_files],
         source_names=[statement_file.filename or "unnamed" for statement_file in statement_files],
         input_df=input_df,
         config=settings,
@@ -160,9 +156,24 @@ async def _read_uploaded_file(file: UploadFile) -> pd.DataFrame:
     Supports CSV and Excel (.xlsx, .xls, .xlsm) formats. An unsupported or
     unparseable file is the client's problem, so it is a 400, not a 500.
     """
-    content = await file.read()
+    content = await _read_upload_bytes(file)
     try:
         frame = read_input_file(io.BytesIO(content), file.filename or "")
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return canonicalize_input_columns(frame)
+
+
+async def _read_upload_bytes(file: UploadFile) -> bytes:
+    """Read an upload, refusing one larger than MAX_UPLOAD_BYTES with a 413.
+
+    Reads one byte past the limit rather than trusting a client-supplied size,
+    so an oversized file is caught without being read in full.
+    """
+    content = await file.read(MAX_UPLOAD_BYTES + 1)
+    if len(content) > MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"'{file.filename}' is larger than {MAX_UPLOAD_BYTES // (1024 * 1024)} MB.",
+        )
+    return content

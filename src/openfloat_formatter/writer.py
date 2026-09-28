@@ -136,7 +136,8 @@ def _to_buffer(workbook: openpyxl.Workbook) -> BytesIO:
 def load_allowed_types(template_path: str | Path) -> list[str]:
     """Load the Allowed Types list from the OpenFloat reference template.
 
-    Reads column A of the 'Allowed Types' sheet, skipping the header row.
+    Reads column A of the 'Allowed Types' sheet from row 1: the sheet has no
+    header, so the first entry ('Mpesa') is data (see docs/GOTCHA.md #4).
     Values are returned as-is to preserve exact strings (including trailing
     spaces like "SPA NAKURU RURAL ").
 
