@@ -8,6 +8,12 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Desktop and Start menu shortcuts.** The installer now adds an "OpenFloat
+  Data Formatter" shortcut in both places, so staff start the app with a
+  double-click instead of finding `run.bat` among the code files. Rerunning the
+  installer to update overwrites the shortcuts, and a shortcut that can't be
+  created never fails the install.
+
 - **Input columns are matched by name, not by exact spelling.** Only the
   identifier column was flexible before; an export calling its phone column
   `payphone_number` or its network column `service_provider` failed every row
@@ -95,6 +101,13 @@ adheres to [Semantic Versioning](https://semver.org/).
   and added `__version__` to the package.
 
 ### Fixed
+
+- **The staff installer works again.** Git stores `run.bat` with LF line
+  endings, and the zip GitHub serves (which `install.ps1` downloads) kept them.
+  cmd.exe misreads an LF-only batch file, so on every fresh install uv setup
+  failed and the app never started. A `.gitattributes` rule now gives `.bat`
+  files CRLF endings, including in the downloaded zip. Checkouts made with
+  `core.autocrlf` were never affected, which is how it went unnoticed.
 
 - **A blank amount is now a hard error.** An empty cell reads as `NaN`, and
   `NaN <= 0` is false, so the row passed validation and went into the
