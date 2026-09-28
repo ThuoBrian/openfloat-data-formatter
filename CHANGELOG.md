@@ -8,6 +8,12 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Desktop and Start menu shortcuts.** The installer now adds an "OpenFloat
+  Data Formatter" shortcut in both places, so staff start the app with a
+  double-click instead of finding `run.bat` among the code files. Rerunning the
+  installer to update overwrites the shortcuts, and a shortcut that can't be
+  created never fails the install.
+
 - **Input columns are matched by name, not by exact spelling.** Only the
   identifier column was flexible before; an export calling its phone column
   `payphone_number` or its network column `service_provider` failed every row

@@ -1,0 +1,5 @@
+# Batch files need CRLF line endings: cmd.exe misreads an LF-only .bat and runs
+# fragments of it as commands. Git stores them as LF, so without this rule the
+# zip GitHub serves (which is what install/install.ps1 downloads) ships a
+# run.bat that fails on every staff machine.
+*.bat text eol=crlf

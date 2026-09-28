@@ -18,11 +18,11 @@ sync:
     uv sync --python 3.12
 
 # Streamlit UI on http://localhost:8501
-ui: sync
+ui:
     uv run streamlit run src/openfloat_formatter/ui/app.py --server.port 8501 --server.address=127.0.0.1
 
 # FastAPI server on http://localhost:8000 (docs at /docs)
-api: sync
+api:
     uv run uvicorn openfloat_formatter.main:app --reload --host 127.0.0.1 --port 8000
 
 # API and UI together in this terminal; Ctrl+C stops both

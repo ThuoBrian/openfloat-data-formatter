@@ -24,14 +24,17 @@ anywhere remote.
 
 3. A window will ask where to install the app (Desktop by default) — pick a
    folder or just press OK.
-4. It downloads the app and starts setting up automatically — this continues
-   in the "Starting the App" steps below.
+4. It downloads the app, puts an **OpenFloat Data Formatter** shortcut on
+   your Desktop and in the Start menu, and starts setting up automatically —
+   this continues in the "Starting the App" steps below.
 
 ## Starting the App
 
 1. **First time**: happens automatically at the end of installing (above).
-   **Later**: go to the folder you installed into and double-click
-   **`run.bat`**.
+   **Later**: double-click the **OpenFloat Data Formatter** shortcut on your
+   Desktop, or find it in the Start menu. (If the shortcut is missing, go to
+   the folder you installed into and double-click **`run.bat`** — it does the
+   same thing.)
 2. A black command window will pop up — this is normal. **Don't close it**
    while you're using the app; closing it stops the app.
 3. **First run only**: setup takes a few minutes (installing Python and
@@ -140,5 +143,12 @@ Wherever your browser normally saves downloads (usually your Downloads
 folder).
 
 **The black window shows an error and closed.**
-Try double-clicking `run.bat` again. If it still fails, take a screenshot of
-the error and send it to whoever gave you this tool.
+Try the **OpenFloat Data Formatter** shortcut (or `run.bat` in the install
+folder) again. If it still fails, take a screenshot of the error and send it
+to whoever gave you this tool.
+
+**How do I remove the app?**
+There's no uninstaller. Delete the install folder (`openfloat-data-formatter`)
+and the **OpenFloat Data Formatter** shortcuts on your Desktop and in the Start
+menu. The first run also installed **uv**, which downloaded a copy of Python
+for the app. Other tools may use uv too, so it is safe to leave in place.
