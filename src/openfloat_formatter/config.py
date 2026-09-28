@@ -4,8 +4,10 @@ All tuneable values are defined here with sensible defaults.
 Override via environment variables or a .env file.
 """
 
+import re
 from pathlib import Path
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Project root directory (two levels up from this file)
@@ -180,6 +182,10 @@ INPUT_COLUMN_TOKEN_EXCLUDE: dict[str, tuple[str, ...]] = {
     "amount": ("name", "date"),
 }
 
+# A country code: 1-3 digits. Anything else (blank, '+254', a typo) would
+# silently rewrite every phone number in a batch, so it is rejected up front.
+COUNTRY_PREFIX_PATTERN = re.compile(r"\d{1,3}")
+
 # Process Maker input columns
 PROCESSMAKER_COLUMNS = [
     "unique_id",
@@ -206,7 +212,9 @@ class Settings(BaseSettings):
 
     # Validation thresholds
     max_amount_threshold: int = 10_000
-    default_country_prefix: str = "254"
+    default_country_prefix: str = Field(
+        default="254", pattern=rf"^{COUNTRY_PREFIX_PATTERN.pattern}$"
+    )
 
     # Explicit identifier column for the output 'Account Name'. None = detect it
     # (the UI picker sets this per upload; ACCOUNT_NAME_COLUMN overrides via env).

@@ -96,6 +96,22 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **`.xls` uploads work.** They were accepted everywhere but always failed,
+  because pandas needs `xlrd` to read the old Excel format and it was not
+  installed. `xlrd` is now a dependency.
+- **The country prefix is checked.** A blank or mistyped prefix (`+254`, `25a`)
+  silently rewrote every phone number in the batch. The app now stops with an
+  error in the sidebar until it is 1 to 3 digits, and `DEFAULT_COUNTRY_PREFIX`
+  in `.env` is held to the same rule.
+- **The API refuses uploads over 20 MB** with a 413, rather than parsing them
+  into memory. Statement files are covered too.
+- **The API no longer sends CORS headers.** Nothing calls it from a browser,
+  and the old wildcard origin let any web page post files to it on localhost.
+- The sidebar shows one **Advanced settings** section instead of two; the
+  amount threshold appears in it only in Transform mode.
+- Dropped the deprecated `use_container_width` argument (Streamlit's default
+  width already stretches), which silences the deprecation warnings.
+
 - **A blank amount is now a hard error.** An empty cell reads as `NaN`, and
   `NaN <= 0` is false, so the row passed validation and went into the
   OpenFloat upload with an empty Amount. `nan`/`inf` typed as text were

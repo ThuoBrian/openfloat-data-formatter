@@ -19,7 +19,11 @@ from typing import Any
 import pandas as pd
 import streamlit as st
 
-from openfloat_formatter.config import DEFAULT_TEMPLATE_PATH, Settings
+from openfloat_formatter.config import (
+    COUNTRY_PREFIX_PATTERN,
+    DEFAULT_TEMPLATE_PATH,
+    Settings,
+)
 from openfloat_formatter.models import StatementReport, ValidationIssue, ValidationReport
 from openfloat_formatter.normalizer import (
     canonicalize_input_columns,
@@ -66,15 +70,33 @@ def main():
     # Free text that silently corrupts every phone number in a batch if it is
     # mistyped, on a tool only used for Kenyan numbers — it belongs out of the
     # way, not beside the upload button.
+    # One expander for both modes; the threshold only matters to Transform, so
+    # it only shows there.
     with st.sidebar.expander("Advanced settings"):
         country_prefix = st.text_input(
             "Country prefix",
             value="254",
             help="Country code prepended to phone numbers",
+        ).strip()
+        amount_threshold = (
+            st.number_input(
+                "Max amount threshold (KES)",
+                min_value=0,
+                value=10_000,
+                help="Warn when airtime amount exceeds this value",
+            )
+            if mode == "Transform"
+            else 0
         )
 
+    # A blank or mistyped prefix would silently rewrite every phone number in
+    # the batch, so nothing runs until it is a plain country code.
+    if not COUNTRY_PREFIX_PATTERN.fullmatch(country_prefix):
+        st.sidebar.error("Country prefix must be 1 to 3 digits, e.g. 254.")
+        st.stop()
+
     if mode == "Transform":
-        render_transform_page(country_prefix)
+        render_transform_page(country_prefix, int(amount_threshold))
     else:
         render_statement_report_page(country_prefix)
 
@@ -304,19 +326,8 @@ def _select_project_code(df: pd.DataFrame) -> str | None:
     return typed or None
 
 
-def render_transform_page(country_prefix: str):
+def render_transform_page(country_prefix: str, amount_threshold: int):
     """Upload → check columns → fix problems → download, as four numbered steps."""
-    # --- Sidebar: transform-specific configuration ---
-    # Tucked away: a threshold nobody changes per upload, sitting next to the
-    # upload button, reads like something that has to be decided first.
-    with st.sidebar.expander("Advanced settings"):
-        amount_threshold = st.number_input(
-            "Max amount threshold (KES)",
-            min_value=0,
-            value=10_000,
-            help="Warn when airtime amount exceeds this value",
-        )
-
     # --- Step 1: upload ---
     st.header("Step 1 — Upload your file")
     uploaded_file = st.file_uploader(
@@ -345,7 +356,7 @@ def render_transform_page(country_prefix: str):
     df = canonicalize_input_columns(raw_df, column_choice)
 
     st.markdown(f"**{len(df)} rows** × **{len(df.columns)} columns**")
-    st.dataframe(df.head(10), use_container_width=True)
+    st.dataframe(df.head(10))
 
     project_code = _select_project_code(df)
 
@@ -380,7 +391,7 @@ def render_transform_page(country_prefix: str):
     if report.errors:
         with st.expander(f"❌ Rows that will be left out ({len(report.errors)})",
                          expanded=True):
-            st.dataframe(_issue_table(report.errors), use_container_width=True)
+            st.dataframe(_issue_table(report.errors))
             st.download_button(
                 label="📤 Download the rows that need fixing",
                 data=write_rejected_rows_workbook(raw_df, report).getvalue(),
@@ -402,7 +413,7 @@ def render_transform_page(country_prefix: str):
 
     if report.warnings:
         with st.expander(f"⚠️ Worth checking ({len(report.warnings)})", expanded=False):
-            st.dataframe(_issue_table(report.warnings), use_container_width=True)
+            st.dataframe(_issue_table(report.warnings))
 
     if not report.errors and not report.warnings:
         st.success("✅ Every row in this file can be uploaded.")
@@ -594,7 +605,7 @@ def render_statement_report_page(country_prefix: str):
                     for s in report.file_summaries
                 ]
             )
-            st.dataframe(summary_df, use_container_width=True)
+            st.dataframe(summary_df)
             for s in report.file_summaries:
                 if s.footer_matches is False:
                     st.warning(
@@ -613,7 +624,7 @@ def render_statement_report_page(country_prefix: str):
                     )
                 ]
             )
-            st.dataframe(status_df, use_container_width=True)
+            st.dataframe(status_df)
 
     # --- Unsuccessful transactions (the follow-up list) ---
     if report.unsuccessful_transactions:
@@ -625,7 +636,6 @@ def render_statement_report_page(country_prefix: str):
                 pd.DataFrame(
                     [_txn_display_columns(txn) for txn in report.unsuccessful_transactions]
                 ),
-                use_container_width=True,
             )
     else:
         st.success("✅ Every transaction in every statement was successful.")
@@ -653,7 +663,7 @@ def render_statement_report_page(country_prefix: str):
                     for r in report.case_rollups
                 ]
             )
-            st.dataframe(rollup_df, use_container_width=True)
+            st.dataframe(rollup_df)
             for r in report.case_rollups:
                 # None (short-form remark, no amount to compare) and 0 both mean
                 # "nothing to flag".
@@ -692,7 +702,6 @@ def render_statement_report_page(country_prefix: str):
                                 for entry in entries
                             ]
                         ),
-                        use_container_width=True,
                     )
 
         if rec.duplicate_input_phones:
@@ -710,7 +719,6 @@ def render_statement_report_page(country_prefix: str):
         with st.expander(f"⚠️ Parse Warnings ({len(report.warnings)})", expanded=False):
             st.dataframe(
                 pd.DataFrame({"Warning": report.warnings}),
-                use_container_width=True,
             )
 
 

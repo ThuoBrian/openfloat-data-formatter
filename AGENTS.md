@@ -42,7 +42,7 @@ Real OpenFloat "Transaction Statement" exports (post-disbursement reports) used 
 
 ## Key Domain Rules
 
-**Phone normalization**: strip whitespace/special chars, remove `254` or `0` prefix (only if result would be >9 digits after removal) → keep 9 digits → prepend `254` for output. Reject numbers not exactly 9 digits after stripping. An empty cell is its own hard error (`Phone number is empty`), guarded before the numeric conversion: one blank phone makes pandas type the column `float64`, and `int(NaN)` raises rather than returning an error, which used to abort the entire upload. Edge case: `254012345678` → strip `254` → `012345678` (already 9 digits, keep leading zero) → `254012345678`.
+**Phone normalization**: strip whitespace/special chars, remove `254` or `0` prefix (only if result would be >9 digits after removal) → keep 9 digits → prepend `254` for output. Reject numbers not exactly 9 digits after stripping. An empty cell is its own hard error (`Phone number is empty`), guarded before the numeric conversion: one blank phone makes pandas type the column `float64`, and `int(NaN)` raises rather than returning an error, which used to abort the entire upload. Edge case: `254012345678` → strip `254` → `012345678` (already 9 digits, keep leading zero) → `254012345678`. The prefix itself must be 1–3 digits (`config.COUNTRY_PREFIX_PATTERN`, enforced on `Settings.default_country_prefix` and by the app's sidebar): a blank or `+254` prefix would silently rewrite every number in the batch.
 
 **Network → Account Type mapping**: `Safaricom` → `Safaricom Prepaid`, `Airtel` → `Airtel Prepaid`, `Airtel Postpaid` → `Airtel Postpaid`, `Telkom` → `Telkom Kenya Prepaid`, `Telkom Postpaid` → `Telkom Kenya Postpaid`, `Airtel Kenya` → `Airtel Prepaid` (some exports write the carrier's full name; prepaid, matching how bare `Airtel` maps — a postpaid line is always spelled out as such). Unmapped networks → hard error. Mapping is case-sensitive, and values are matched exactly: unlike column *names*, a network value routes money, so a new spelling is added here deliberately rather than guessed at.
 
@@ -114,6 +114,7 @@ src/openfloat_formatter/   # the installed Python package (hatchling, src layout
   writer.py        # Excel output (openpyxl): the OpenFloat upload (two-sheet), the
                    #   Statement Report workbook, and the finance Debit sheet
   main.py          # FastAPI app: POST /transform, /validate, /statement-report, GET /health
+                   #   (no CORS on purpose; uploads over MAX_UPLOAD_BYTES = 20 MB get a 413)
   ui/app.py        # Streamlit UI with two modes: Transform (upload → preview → validate →
                    #   download) and Statement Report (analyze OpenFloat statements)
 tests/             # pytest suite (statement tests use synthetic workbooks only;
