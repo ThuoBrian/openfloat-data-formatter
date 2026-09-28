@@ -28,7 +28,7 @@ from .config import Settings, settings
 from .models import StatementReport, ValidationReport
 from .normalizer import canonicalize_input_columns
 from .statement import build_statement_report
-from .transformer import transform_frame
+from .transformer import read_input_file, transform_frame
 from .validator import validate as run_validation
 
 app = FastAPI(
@@ -157,18 +157,12 @@ async def statement_report(
 async def _read_uploaded_file(file: UploadFile) -> pd.DataFrame:
     """Read an uploaded file into a pandas DataFrame.
 
-    Supports CSV and Excel (.xlsx, .xls, .xlsm) formats.
+    Supports CSV and Excel (.xlsx, .xls, .xlsm) formats. An unsupported or
+    unparseable file is the client's problem, so it is a 400, not a 500.
     """
-    suffix = Path(file.filename or "").suffix.lower()
     content = await file.read()
-
-    if suffix == ".csv":
-        return canonicalize_input_columns(pd.read_csv(io.BytesIO(content)))
-    elif suffix in (".xlsx", ".xls", ".xlsm"):
-        return canonicalize_input_columns(pd.read_excel(io.BytesIO(content)))
-    else:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unsupported file format: '{suffix}'. "
-            f"Expected .csv, .xlsx, .xls, or .xlsm.",
-        )
+    try:
+        frame = read_input_file(io.BytesIO(content), file.filename or "")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return canonicalize_input_columns(frame)

@@ -1,10 +1,18 @@
 """Tests for the transformer module — end-to-end transformation pipeline."""
 
+import io
 
+import openpyxl
 import pandas as pd
+import pytest
 
 from openfloat_formatter.normalizer import canonicalize_input_columns, parse_case_remark
-from openfloat_formatter.transformer import _build_output_rows, transform, transform_frame
+from openfloat_formatter.transformer import (
+    _build_output_rows,
+    read_input_file,
+    transform,
+    transform_frame,
+)
 
 
 class TestTransformFrame:
@@ -48,6 +56,71 @@ class TestTransformFrame:
         assert len(from_path.validation_report.errors) == len(
             from_frame.validation_report.errors
         )
+
+
+def _accounts_rows(result) -> list[dict[str, object]]:
+    """The Accounts sheet of a transform result, as header → value dicts."""
+    sheet = openpyxl.load_workbook(result.output)["Accounts"]
+    header, *rows = sheet.iter_rows(values_only=True)
+    return [dict(zip(header, row, strict=True)) for row in rows]
+
+
+class TestReadInputFile:
+    """Files are read as text, so values reach the output as typed.
+
+    Every case here reads a real file from disk: the bugs lived in pandas'
+    type inference at read time, which a hand-built DataFrame never exercises.
+    """
+
+    CSV = (
+        "staff_id,airtime_phone,network,amount\n"
+        "00123,712345678,Safaricom,100\n"
+        ",798765432,Safaricom,50\n"
+        "456,722345678,Airtel,\n"
+        "789,,Safaricom,75\n"
+        "790,712345678,Safaricom,25\n"
+    )
+
+    @pytest.fixture
+    def csv_result(self, tmp_path, default_config):
+        path = tmp_path / "input.csv"
+        path.write_text(self.CSV, encoding="utf-8")
+        return transform(path, default_config)
+
+    def test_identifier_keeps_leading_zeros_and_no_float_suffix(self, csv_result):
+        """The bug: inferred as float, '00123' went out as '123.0'."""
+        names = [row["Account Name"] for row in _accounts_rows(csv_result)]
+        assert names == ["00123", None, "790"]
+
+    def test_blank_amount_row_is_left_out(self, csv_result):
+        """The bug: a blank amount shipped to OpenFloat as an empty cell."""
+        report = csv_result.validation_report
+        assert "Row 4: Amount is empty" in [e.message for e in report.errors]
+        assert all(row["Amount"] is not None for row in _accounts_rows(csv_result))
+
+    def test_duplicate_phone_found_despite_a_blank_phone(self, csv_result):
+        """The bug: the blank on row 5 hid the duplicate on rows 2 and 6."""
+        messages = [w.message for w in csv_result.validation_report.warnings]
+        assert "Duplicate phone number 254712345678 appears on rows 2, 6" in messages
+
+    def test_excel_numeric_identifier_has_no_float_suffix(self, tmp_path, default_config):
+        """Excel stores numbers as floats; a blank cell must not surface that."""
+        workbook = openpyxl.Workbook()
+        sheet = workbook.active
+        sheet.append(["staff_id", "airtime_phone", "network", "amount"])
+        sheet.append(["00123", 712345678, "Safaricom", 100])
+        sheet.append([456, 798765432, "Safaricom", 50])
+        sheet.append([None, 722345678, "Airtel", 25])
+        path = tmp_path / "input.xlsx"
+        workbook.save(path)
+
+        rows = _accounts_rows(transform(path, default_config))
+        assert [row["Account Name"] for row in rows] == ["00123", "456", None]
+        assert [row["Amount"] for row in rows] == [100, 50, 25]
+
+    def test_unsupported_suffix_raises(self):
+        with pytest.raises(ValueError, match="Unsupported file format"):
+            read_input_file(io.BytesIO(b"hello"), "input.txt")
 
 
 class TestTransformWithSampleData:

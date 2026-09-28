@@ -34,7 +34,7 @@ from openfloat_formatter.remark import (
     find_project_code_column,
 )
 from openfloat_formatter.statement import build_statement_report
-from openfloat_formatter.transformer import transform_frame
+from openfloat_formatter.transformer import read_input_file, transform_frame
 from openfloat_formatter.validator import remark_context
 from openfloat_formatter.writer import (
     write_finance_workbook,
@@ -330,12 +330,7 @@ def render_transform_page(country_prefix: str):
         return
 
     try:
-        suffix = Path(uploaded_file.name).suffix.lower()
-        raw_df = (
-            pd.read_csv(uploaded_file)
-            if suffix == ".csv"
-            else pd.read_excel(uploaded_file)
-        )
+        raw_df = read_input_file(uploaded_file, uploaded_file.name)
     except Exception as e:
         st.error(f"Error reading file: {e}")
         return
@@ -527,10 +522,7 @@ def render_statement_report_page(country_prefix: str):
     input_df = None
     if pm_file is not None:
         try:
-            if Path(pm_file.name).suffix.lower() == ".csv":
-                input_df = canonicalize_input_columns(pd.read_csv(pm_file))
-            else:
-                input_df = canonicalize_input_columns(pd.read_excel(pm_file))
+            input_df = canonicalize_input_columns(read_input_file(pm_file, pm_file.name))
         except Exception as e:
             st.error(f"Error reading Process Maker input: {e}")
             return

@@ -90,6 +90,19 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **A blank amount is now a hard error.** An empty cell reads as `NaN`, and
+  `NaN <= 0` is false, so the row passed validation and went into the
+  OpenFloat upload with an empty Amount. `nan`/`inf` typed as text were
+  accepted the same way. All are now rejected; reconciliation also stops a
+  blank input amount from hiding an amount mismatch.
+- **Identifiers reach Account Name as typed.** Input files are now read with
+  every cell as text (`transformer.read_input_file`, shared by the app, the API
+  and `transform`). Inferred as numbers, `00123` lost its leading zeros, and one
+  blank cell in the column made every ID go out as `123.0`.
+- **Duplicate phones are reported even when a phone cell is blank.** The check
+  stringified float cells into `712345678.0`, which never normalized, so one
+  blank phone hid every duplicate in the file.
+- The API returns 400, not 500, for an upload pandas cannot parse.
 - **A blank phone cell no longer aborts the whole upload.** One empty
   `airtime_phone` makes pandas type the column `float64`, and converting the
   resulting `NaN` raised rather than returning an error — a single blank cell

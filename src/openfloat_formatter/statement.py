@@ -462,6 +462,10 @@ def reconcile(
             amount = float(amount_raw)
         except (ValueError, TypeError):
             amount = None
+        # A blank cell is NaN: summed in, it poisons input_amount and the
+        # mismatch check (NaN compares False) never fires.
+        if amount is not None and not math.isfinite(amount):
+            amount = None
         normalized_rows.append((row_number, phone, phone_error, row, amount))
 
     entries: dict[str, ReconciliationEntry] = {}
@@ -470,7 +474,7 @@ def reconcile(
         if phone_error is not None:
             # Unnormalizable input phone: keep the raw value as the key and
             # surface the error — it can never match a statement row.
-            key = str(row.get("airtime_phone", "")).strip()
+            key = read_text_cell(row.get("airtime_phone", ""))
             entry = entries.setdefault(
                 key,
                 ReconciliationEntry(phone=key, unique_id=unique_id),

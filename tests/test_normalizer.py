@@ -165,6 +165,20 @@ class TestNormalizeAmount:
         assert result == 0.0
         assert error is not None
 
+    @pytest.mark.parametrize("cell", [float("nan"), None])
+    def test_blank_cell_is_rejected(self, cell):
+        """The bug: a blank cell is NaN, and `NaN <= 0` is False, so it passed."""
+        result, error = normalize_amount(cell)
+        assert result == 0.0
+        assert error == "Amount is empty"
+
+    @pytest.mark.parametrize("raw", ["nan", "inf", "-inf", float("inf")])
+    def test_non_finite_is_rejected(self, raw):
+        """float() accepts 'nan' and 'inf'; neither is money."""
+        result, error = normalize_amount(raw)
+        assert result == 0.0
+        assert "not a finite number" in (error or "")
+
 
 class TestParseCaseRemark:
     """Test case_remark parsing: 'C#<case> <project> RESP AIRTIME-KSH<amount> <activity>'."""

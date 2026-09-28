@@ -9,6 +9,7 @@ Handles the normalization pipeline defined in the golden prompt §4.2:
 
 from __future__ import annotations
 
+import math
 import re
 from collections.abc import Iterable, Mapping
 from typing import Any, NamedTuple
@@ -86,11 +87,11 @@ def normalize_phone(
     return (normalized, None)
 
 
-def normalize_amount(raw: str | int | float) -> tuple[float, str | None]:
-    """Coerce an amount value to a positive float.
+def normalize_amount(raw: str | int | float | None) -> tuple[float, str | None]:
+    """Coerce an amount value to a positive, finite float.
 
     Args:
-        raw: The raw amount from Process Maker.
+        raw: The raw amount from Process Maker (an empty cell reads as NaN).
 
     Returns:
         A tuple of (amount, error_message).
@@ -107,10 +108,19 @@ def normalize_amount(raw: str | int | float) -> tuple[float, str | None]:
         >>> normalize_amount(-50)
         (0.0, "Amount -50 is not positive")
     """
+    # An empty cell is NaN, and `NaN <= 0` is False — without this guard a
+    # blank amount passed as valid and shipped to OpenFloat as an empty cell.
+    if raw is None or (isinstance(raw, float) and pd.isna(raw)):
+        return (0.0, "Amount is empty")
+
     try:
         value = float(raw)
     except (ValueError, TypeError):
         return (0.0, f"Amount '{raw}' is not numeric")
+
+    # float() also accepts the strings 'nan' and 'inf'.
+    if not math.isfinite(value):
+        return (0.0, f"Amount '{raw}' is not a finite number")
 
     if value <= 0:
         return (0.0, f"Amount {raw} is not positive")
