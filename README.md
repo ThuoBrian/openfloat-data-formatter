@@ -2,148 +2,153 @@
 
 [![Tests](https://github.com/ThuoBrian/openfloat-data-formatter/actions/workflows/tests.yml/badge.svg)](https://github.com/ThuoBrian/openfloat-data-formatter/actions/workflows/tests.yml)
 
-Turns Process Maker airtime exports into OpenFloat-ready upload files —
-and reports which disbursements actually succeeded. Runs entirely on your
-own laptop; your data never leaves it.
+Turns Process Maker airtime exports into files you can upload to OpenFloat, then
+tells you which payments actually went through. It runs on your own laptop, and
+your data never leaves it.
 
 ## Install (no technical skills needed)
 
-1. Open **PowerShell** on Windows 10/11 (search for it in the Start menu).
+1. Open **PowerShell** on Windows 10 or 11 (search for it in the Start menu).
 2. Paste this command and press Enter:
 
    ```powershell
    irm https://raw.githubusercontent.com/ThuoBrian/openfloat-data-formatter/main/install/install.ps1 | iex
    ```
 
-3. A window asks where to install (Desktop by default) — pick a folder or
-   just press OK. The app then sets itself up and opens in your browser.
+3. A window asks where to install it. The Desktop is the default, so you can
+   just press OK. The app sets itself up and opens in your browser.
 
-The first run needs an internet connection (~150–250 MB); after that it
-works fully offline.
+The first run downloads about 150–250 MB, so it needs an internet connection.
+After that it works offline.
 
-On a Mac? The one-click installer is Windows-only — ask whoever gave you
-this tool to set it up, or use the [developer setup](#for-developers) below.
+The one-click installer only works on Windows. On a Mac, ask whoever gave you
+this tool to set it up, or follow the [developer setup](#for-developers) below.
 
-Full walkthrough — starting the app later, updates, using both modes, FAQ:
-**[GUIDE.md](GUIDE.md)**
+[GUIDE.md](GUIDE.md) covers the rest: starting the app later, getting updates,
+using both modes, and common questions.
 
 ## What it does
 
-The app has two modes, picked in the sidebar:
+Pick one of two modes in the sidebar.
 
-- **Transform** — upload a Process Maker export; the app checks every row
-  (IDs, phone numbers, network, amounts, duplicates), tells you exactly
-  what's wrong, and builds the OpenFloat-ready Excel file to upload.
-- **Statement Report** — upload the Transaction Statement file(s) OpenFloat
-  gives you after disbursement; the app reports successful vs unsuccessful
-  transactions and totals per case — and, if you also add your original
-  Process Maker file, who was paid, who wasn't, and who never appeared on
-  the statement. The whole report downloads as an Excel workbook: a sheet of
-  successful payments, a sheet of unsuccessful/reversed ones, the
-  reconciliation lists, and a total on each. A second download gives finance
-  what they post: a **Debit** column totalling only the payments that went
-  through, with the failed ones shaded rather than dropped.
+**Transform.** Upload a Process Maker export. The app checks every row (IDs,
+phone numbers, network, amounts, duplicates), tells you exactly what's wrong
+with each one, and builds the Excel file you upload to OpenFloat. Rows it can't
+use are listed with the reason, and you can download them as a sheet to send
+back to whoever compiled the export.
 
-Nothing is ever silently dropped or hidden: every filtered row and flagged
-discrepancy is reported.
+**Statement Report.** Upload the Transaction Statement files OpenFloat gives you
+after a disbursement. You get successful and unsuccessful transactions, with
+totals per case. Add your original Process Maker file as well and it also shows
+who was paid, who wasn't, and who never appeared on the statement.
 
-Filling in data by hand? Use **`docs/processmaker-input-template.xlsx`** (in
-your install folder) — it has the correct headers, valid example rows,
-a network dropdown, and an Instructions sheet explaining the
-format rules.
+The report downloads as an Excel workbook, with separate sheets for successful
+payments, unsuccessful or reversed ones, and the reconciliation lists, each with
+a total. A second download is the sheet finance posts from: a **Debit** column
+that totals only the payments that went through, with the failed ones shaded
+instead of removed.
+
+The app never drops a row quietly. Every row it leaves out and every mismatch
+it finds is reported.
+
+Filling in data by hand? Start from **`docs/processmaker-input-template.xlsx`**
+in your install folder. It has the right headers, example rows, a dropdown for
+the network, and an Instructions sheet with the format rules.
 
 ### Limitations
 
-- Needs the core Process Maker columns — `airtime_phone`, `network`, `amount`
-  (see `processmaker-input-template.xlsx`); a row missing one is reported as an
-  error rather than guessed at. The identifier column is the exception: it is
-  detected whatever your export calls it (`Staff ID`, `Respondent ID`, `respo`,
-  `Beneficiary Ref`), and you can override the choice in the app.
-- Phone normalization assumes Kenyan numbers (9 local digits, `254` country
-  code); other country formats are rejected as invalid.
-- Network → Account Type mapping is a fixed, case-sensitive lookup (see
-  [AGENTS.md](AGENTS.md#key-domain-rules)); an unrecognized or
-  differently-cased network name is a hard error, not a best-effort guess.
-- Duplicate phone numbers are flagged, not merged automatically — you decide
-  which row is correct.
-- It prepares the upload file and reads statements back; it does not talk to
-  the OpenFloat API or submit anything on your behalf.
-- The one-click installer is Windows-only (see [GUIDE.md](GUIDE.md)).
+- Every row needs a phone number, a network and an amount. Exports name these
+  columns differently, so the app recognises common names (`payphone_number`,
+  `service_provider` and so on) and lets you pick the right column in the app
+  when it guesses wrong. The ID column is detected the same way (`Staff ID`,
+  `Respondent ID`, `respo`, `Beneficiary Ref`).
+- Phone numbers are assumed to be Kenyan: 9 local digits plus the `254` country
+  code. Numbers in other formats are rejected.
+- Networks are matched against a fixed list, and the match is case-sensitive
+  (see [AGENTS.md](AGENTS.md#key-domain-rules)). A network name the app doesn't
+  recognise, or one spelled with different capitals, is rejected rather than
+  guessed at.
+- Duplicate phone numbers are flagged, not merged. You decide which row is right.
+- The app prepares the upload file and reads the statements afterwards. It
+  doesn't connect to OpenFloat or submit anything for you.
 
 ---
 
 ## For developers
 
-Requires [uv](https://docs.astral.sh/uv/) (one-liner: `curl -LsSf https://astral.sh/uv/install.sh | sh`).
-`uv sync` creates `.venv` and installs the project (editable) with all
-dependencies plus the dev tools — no venv activation or PYTHONPATH needed.
+You need [uv](https://docs.astral.sh/uv/)
+(`curl -LsSf https://astral.sh/uv/install.sh | sh`). `uv sync` creates `.venv`
+and installs the project in editable mode with its dependencies and dev tools,
+so there's no virtualenv to activate and no `PYTHONPATH` to set.
 
-Day-to-day commands go through [just](https://just.systems/)
+Everyday commands run through [just](https://just.systems/)
 (`winget install Casey.Just`, `brew install just`, or `uv tool install rust-just`).
-Run `just` on its own to list every recipe.
+Run `just` on its own to see every recipe.
 
 ```bash
-just sync     # one-time setup (re-run after dependency changes)
+just sync     # first-time setup; re-run after dependency changes
 
-just ui       # Streamlit UI  → http://localhost:8501
-just api      # FastAPI server → http://localhost:8000/docs
-just both     # both at once, in one terminal; Ctrl+C stops both
+just ui       # Streamlit UI at http://localhost:8501
+just api      # FastAPI server, docs at http://localhost:8000/docs
+just both     # both in one terminal; Ctrl+C stops both
 
-just test     # run the test suite (extra args pass through: just test -k test_phone)
-just check    # lint + type-check + tests — what CI enforces
+just test     # test suite; extra args pass through (just test -k test_phone)
+just check    # lint, type-check and tests, the same checks CI runs
 ```
 
-Without just, the underlying `uv run ...` commands are listed in
+If you don't have just, the plain `uv run ...` commands are in
 [AGENTS.md](AGENTS.md#build--run-commands).
 
-Pipeline: `Process Maker CSV → validate → normalize → map → OpenFloat-ready .xlsx`.
-Full domain rules and architecture: [AGENTS.md](AGENTS.md).
-Things that tripped us up during development: [docs/GOTCHA.md](docs/GOTCHA.md).
+The pipeline is `Process Maker CSV → validate → normalize → map → OpenFloat-ready .xlsx`.
+[AGENTS.md](AGENTS.md) has the full domain rules and architecture, and
+[docs/GOTCHA.md](docs/GOTCHA.md) lists the things that caught us out during
+development.
 
 ### HTTP API
 
-The same functionality is exposed by a FastAPI server (`just api`),
-with interactive docs at `http://localhost:8000/docs`:
+`just api` serves the same features over HTTP, with interactive docs at
+`http://localhost:8000/docs`:
 
 | Endpoint | Method | Purpose |
-|---|---|---|
-| `/transform` | POST | Upload a Process Maker export, get the OpenFloat-ready `.xlsx` back (422 if every row was filtered out) |
-| `/validate` | POST | Validation report only — no output file |
-| `/statement-report` | POST | Analyze OpenFloat Transaction Statement file(s), optionally reconciled against the original input |
+| --- | --- | --- |
+| `/transform` | POST | Upload a Process Maker export and get the OpenFloat `.xlsx` back (422 if every row was left out) |
+| `/validate` | POST | Validation report only, no output file |
+| `/statement-report` | POST | Analyse one or more OpenFloat Transaction Statements, optionally reconciled against the original input |
 | `/health` | GET | Confirms the server is running |
 
-`/transform` and `/validate` also accept two optional form fields:
-`account_name_column` (which input column becomes `Account Name` — detected
-from the headers when omitted) and `project_code` (completes a short
-`C#<case>` reference into the full Remark).
+`/transform` and `/validate` take two optional form fields.
+`account_name_column` names the input column that becomes `Account Name`; leave
+it out and the column is detected from the headers. `project_code` completes a
+short `C#<case>` reference into the full Remark.
 
 ### Configuration
 
-All settings have defaults and are optional to override. Copy `.env.example`
-to `.env` and edit, or set the environment variable directly:
+Every setting has a default. To change one, copy `.env.example` to `.env` and
+edit it, or set the environment variable directly:
 
 | Variable | Default | Description |
-|---|---|---|
-| `MAX_AMOUNT_THRESHOLD` | `10000` | Airtime amount (KES) above which a row gets a soft warning |
-| `DEFAULT_COUNTRY_PREFIX` | `254` | Country code added to the front of normalized phone numbers |
-| `PROJECT_CODE` | *(unset)* | Project code used to complete a short `C#<case>` reference into the full Remark. A `project_code` column in the upload wins per row; the Transform page also has a box for it |
-| `ACCOUNT_NAME_COLUMN` | *(detected)* | Input column used for the output `Account Name`. Left unset, the app detects it from the headers; the Transform page also lets you pick it per upload |
-| `OPENFLOAT_TEMPLATE_PATH` | `docs/openfloat-transactions-template.xlsx` | Path to the OpenFloat template, relative to the project's top-level folder |
-| `NETWORK_MAP` | the five networks below | Network → Account Type lookup. Overriding it needs a full JSON object (`'{"Safaricom":"Safaricom Prepaid"}'`), and malformed JSON fails at startup — edit `config.py` instead unless you have a reason |
+| --- | --- | --- |
+| `MAX_AMOUNT_THRESHOLD` | `10000` | Amount in KES above which a row gets a warning |
+| `DEFAULT_COUNTRY_PREFIX` | `254` | Country code put in front of normalized phone numbers |
+| `PROJECT_CODE` | *(unset)* | Completes a short `C#<case>` reference into the full Remark. A `project_code` column in the upload takes priority row by row, and the Transform page has a box for it too |
+| `ACCOUNT_NAME_COLUMN` | *(detected)* | Input column used for the output `Account Name`. Unset, the app detects it from the headers, and the Transform page lets you pick it per upload |
+| `OPENFLOAT_TEMPLATE_PATH` | `docs/openfloat-transactions-template.xlsx` | Path to the OpenFloat template, relative to the project folder |
+| `NETWORK_MAP` | the six networks in `config.py` | Network → Account Type lookup. Overriding it takes a full JSON object (`'{"Safaricom":"Safaricom Prepaid"}'`), and bad JSON stops the app at startup, so it's usually easier to edit `config.py` |
 
-See `src/openfloat_formatter/config.py` for the full `Settings` model.
+The full `Settings` model is in `src/openfloat_formatter/config.py`.
 
 ### Project structure
 
-```
+```text
 src/openfloat_formatter/   the Python package: validation, normalization,
-                           mapping, Excel output, statement reporting,
+                           mapping, Excel output, statement reports, the
                            FastAPI app, and the Streamlit UI (ui/app.py)
-tests/                      pytest suite
-docs/                       reference data (OpenFloat template, fillable input
-                           template, GOTCHA.md dev notes)
-scripts/                    maintenance scripts (e.g. template generator)
-install/                    one-liner installer for non-technical users
+tests/                     pytest suite
+docs/                      reference data (OpenFloat template, fillable input
+                           template) and GOTCHA.md dev notes
+scripts/                   maintenance scripts, such as the template generator
+install/                   the one-line installer for non-technical users
+justfile                   developer commands (run `just` to list them)
 ```
 
 ### Stack
@@ -156,8 +161,8 @@ Release history is in [CHANGELOG.md](CHANGELOG.md).
 
 ## Contributing
 
-Bug reports and pull requests are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md)
-for setup, testing, and the PR process.
+Bug reports and pull requests are welcome. [CONTRIBUTING.md](CONTRIBUTING.md)
+covers setup, testing and the PR process.
 
 ## License
 
