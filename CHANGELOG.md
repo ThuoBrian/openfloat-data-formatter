@@ -47,6 +47,12 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **A `justfile` replaces `start.bat` and `start.sh`.** Developer commands are
+  now `just ui`, `just api`, `just both`, `just test` and `just check` (the same
+  lint, type-check and test gates CI runs). `just both` runs both servers in one
+  terminal on every OS, and Ctrl+C stops both. Servers still bind to
+  `127.0.0.1`. Staff are unaffected: `run.bat` and the installer are unchanged.
+
 - A short `C#<case_number>` reference is now **composed into the full Remark**
   — `C#38305 22505AA RESP AIRTIME-KSH28000 g06` — using a `project_code`
   column (or the new `PROJECT_CODE` setting / Project Code box in the app), the

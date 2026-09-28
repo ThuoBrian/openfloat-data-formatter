@@ -78,16 +78,23 @@ Requires [uv](https://docs.astral.sh/uv/) (one-liner: `curl -LsSf https://astral
 `uv sync` creates `.venv` and installs the project (editable) with all
 dependencies plus the dev tools — no venv activation or PYTHONPATH needed.
 
+Day-to-day commands go through [just](https://just.systems/)
+(`winget install Casey.Just`, `brew install just`, or `uv tool install rust-just`).
+Run `just` on its own to list every recipe.
+
 ```bash
-uv sync --python 3.12    # one-time setup (re-run after dependency changes)
+just sync     # one-time setup (re-run after dependency changes)
 
-./start.sh ui      # Streamlit UI  → http://localhost:8501
-./start.sh api     # FastAPI server → http://localhost:8000/docs
-./start.sh both    # both at once (start.bat on Windows)
+just ui       # Streamlit UI  → http://localhost:8501
+just api      # FastAPI server → http://localhost:8000/docs
+just both     # both at once, in one terminal; Ctrl+C stops both
 
-uv run pytest -v   # run the test suite
-uv run ruff check . && uv run mypy   # lint + type-check (CI enforces these too)
+just test     # run the test suite (extra args pass through: just test -k test_phone)
+just check    # lint + type-check + tests — what CI enforces
 ```
+
+Without just, the underlying `uv run ...` commands are listed in
+[AGENTS.md](AGENTS.md#build--run-commands).
 
 Pipeline: `Process Maker CSV → validate → normalize → map → OpenFloat-ready .xlsx`.
 Full domain rules and architecture: [AGENTS.md](AGENTS.md).
@@ -95,7 +102,7 @@ Things that tripped us up during development: [docs/GOTCHA.md](docs/GOTCHA.md).
 
 ### HTTP API
 
-The same functionality is exposed by a FastAPI server (`./start.sh api`),
+The same functionality is exposed by a FastAPI server (`just api`),
 with interactive docs at `http://localhost:8000/docs`:
 
 | Endpoint | Method | Purpose |

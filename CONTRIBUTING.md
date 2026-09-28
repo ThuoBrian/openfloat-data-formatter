@@ -2,15 +2,18 @@
 
 ## Getting set up
 
-Requires [uv](https://docs.astral.sh/uv/).
+Requires [uv](https://docs.astral.sh/uv/). The commands below use
+[just](https://just.systems/) (`winget install Casey.Just`, `brew install just`,
+or `uv tool install rust-just`); each recipe is a thin wrapper over `uv run ...`,
+listed in the [justfile](justfile) if you'd rather call uv directly.
 
 ```bash
 git clone https://github.com/ThuoBrian/openfloat-data-formatter.git
 cd openfloat-data-formatter
-uv sync --python 3.12
+just sync
 ```
 
-Confirm your setup works: `uv run pytest -v` should pass.
+Confirm your setup works: `just test` should pass.
 
 ## Making a change
 
@@ -20,7 +23,7 @@ Confirm your setup works: `uv run pytest -v` should pass.
    reconciliation, read [AGENTS.md](AGENTS.md) first — those rules are
    deliberate and have edge cases.
 3. Add or update tests for the change.
-4. Run the checks below — all must pass; CI runs the same ones.
+4. Run `just check` — lint, type-check and tests must all pass; CI runs the same ones.
 5. Commit with a clear, imperative message (e.g. `Fix phone normalization for
    012-prefixed numbers`) — see `git log` for the existing style.
 6. Open a pull request using the repo's PR template
@@ -34,21 +37,21 @@ Confirm your setup works: `uv run pytest -v` should pass.
 before opening a PR.
 
 ```bash
-uv run ruff check .
+just lint
 ```
 
 ## Type checking
 
 ```bash
-uv run mypy
+just typecheck
 ```
 
 ## Tests
 
 ```bash
-uv run pytest -v                            # full suite
-uv run pytest tests/test_normalizer.py -v   # one module
-uv run pytest -k "test_phone" -v            # by name pattern
+just test                              # full suite
+just test tests/test_normalizer.py     # one module
+just test -k test_phone                # by name pattern
 ```
 
 Tests live in `tests/`, one module per `src/openfloat_formatter/*.py` file.
