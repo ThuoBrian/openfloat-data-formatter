@@ -441,6 +441,21 @@ class TestReconcile:
         assert result.multiply_paid_phones == ["254752345678"]
         assert result.statement_not_in_input == []
 
+    def test_blank_input_amount_does_not_hide_a_mismatch(
+        self, pm_input_df, statement_transactions
+    ):
+        """The bug: a blank amount summed in as NaN, and NaN compares False.
+
+        254752345678 appears twice in the input; with one amount blank the
+        input asks for 100, the statement paid 200 — that has to be flagged.
+        """
+        pm_input_df["amount"] = pm_input_df["amount"].astype(float)
+        pm_input_df.loc[4, "amount"] = float("nan")
+        result = reconcile(pm_input_df, statement_transactions)
+        entry = next(e for e in result.matched_paid if e.phone == "254752345678")
+        assert entry.input_amount == 100
+        assert any("differs from statement" in note for note in entry.notes)
+
     def test_matched_paid_entry_details(self, pm_input_df, statement_transactions):
         """A clean matched-paid entry carries the input rows and statement totals."""
         result = reconcile(pm_input_df, statement_transactions)

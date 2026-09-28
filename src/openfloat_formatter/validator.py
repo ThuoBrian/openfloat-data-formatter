@@ -9,7 +9,7 @@ Implements the validation rules from the golden prompt §4.
 
 from __future__ import annotations
 
-from collections import Counter
+from collections import defaultdict
 
 import pandas as pd
 
@@ -225,22 +225,19 @@ def validate(
             rows_with_errors.add(idx)
 
     # --- Duplicate phone detection (soft warning) ---
-    phone_counts: Counter[str] = Counter()
-    for _idx, row in df.iterrows():
-        phone_raw = str(row.get("airtime_phone", "")).strip()
-        phone_key, _ = normalize_phone(phone_raw, config.default_country_prefix)
+    # The raw cell goes to normalize_phone, as in check_hard_errors: str()-ing
+    # it first turned a float cell into '712345678.0', which never normalized,
+    # so a file with one blank phone reported no duplicates at all.
+    rows_by_phone: dict[str, list[int]] = defaultdict(list)
+    for idx, row in df.iterrows():
+        phone_key, _ = normalize_phone(
+            row.get("airtime_phone", ""), config.default_country_prefix
+        )
         if phone_key:  # Only count valid phones
-            phone_counts[phone_key] += 1
+            rows_by_phone[phone_key].append(idx + 2)  # 1-based, accounting for header
 
-    for phone, count in phone_counts.items():
-        if count > 1:
-            # Find all rows with this phone
-            dup_rows = []
-            for idx, row in df.iterrows():
-                phone_raw = str(row.get("airtime_phone", "")).strip()
-                normalized, _ = normalize_phone(phone_raw, config.default_country_prefix)
-                if normalized == phone:
-                    dup_rows.append(idx + 2)  # 1-based, accounting for header
+    for phone, dup_rows in rows_by_phone.items():
+        if len(dup_rows) > 1:
             warnings.append(
                 ValidationIssue(
                     row_number=dup_rows[0],

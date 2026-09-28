@@ -108,6 +108,14 @@ class TestValidatorAmountValidation:
         report = validate(minimal_df, default_config)
         assert report.filtered_counts.invalid_amount == 1
 
+    def test_blank_amount_is_a_hard_error(self, minimal_df, default_config):
+        """A blank amount excludes the row instead of shipping an empty Amount."""
+        minimal_df["amount"] = [150.0, float("nan")]
+        report = validate(minimal_df, default_config)
+        assert report.valid_rows == 1
+        assert report.filtered_counts.invalid_amount == 1
+        assert report.errors[0].message == "Row 3: Amount is empty"
+
     def test_negative_amount(self, minimal_df, default_config):
         """Negative amount produces an error."""
         minimal_df.loc[0, "amount"] = -50
@@ -146,6 +154,25 @@ class TestValidatorDuplicates:
         report = validate(minimal_df, default_config)
         dup_warnings = [w for w in report.warnings if w.field == "airtime_phone"]
         assert len(dup_warnings) >= 1
+
+    def test_duplicate_found_in_a_float_phone_column(self, minimal_df, default_config):
+        """The bug: one blank phone makes pandas type the column float64.
+
+        The check str()-ed each cell first, so '712345678.0' never normalized
+        and no duplicate in the file was reported.
+        """
+        df = pd.DataFrame(
+            {
+                "unique_id": ["A", "B", "C"],
+                "airtime_phone": [712345678.0, 712345678.0, float("nan")],
+                "network": ["Safaricom"] * 3,
+                "amount": [100, 100, 100],
+            }
+        )
+        report = validate(df, default_config)
+        duplicates = [w for w in report.warnings if "Duplicate" in w.message]
+        assert len(duplicates) == 1
+        assert "rows 2, 3" in duplicates[0].message
 
     def test_no_duplicates(self, minimal_df, default_config):
         """No duplicate warnings for unique phones."""

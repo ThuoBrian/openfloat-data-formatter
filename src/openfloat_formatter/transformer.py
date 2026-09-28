@@ -6,6 +6,7 @@ Orchestrates the full pipeline: read → validate → normalize → map → buil
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
@@ -94,23 +95,41 @@ def transform_frame(
     )
 
 
-def _read_input(path: Path) -> pd.DataFrame:
-    """Read a CSV or Excel file into a DataFrame.
+def read_input_file(source: Any, file_name: str) -> pd.DataFrame:
+    """Read a Process Maker CSV or Excel export with every cell as text.
 
-    Column names are canonicalized on the way out, so an export calling its
-    phone column 'payphone_number' reads the same as one calling it
-    'airtime_phone'.
+    Every caller — this module, the API and the app — reads through here, so
+    none of them can reintroduce type inference. Left to infer, pandas reads
+    an ID column as numbers: `00123` loses its zeros, and one blank cell turns
+    the whole column float, so every Account Name goes out as `123.0`. The
+    same float column made the duplicate-phone check miss every duplicate.
+    Amounts are still coerced where they are used, by `normalize_amount`.
+
+    Headers are returned as the file has them; canonicalizing is the caller's
+    step, because the app needs the raw headers for its column picker and the
+    rejected-rows download.
+
+    Args:
+        source: A path or a readable binary buffer.
+        file_name: The file's name, whose suffix picks the reader.
+
+    Raises:
+        ValueError: For an unsupported suffix, and (from pandas, whose parse
+            errors subclass it) for a file that cannot be parsed.
     """
-    suffix = path.suffix.lower()
+    suffix = Path(file_name).suffix.lower()
     if suffix == ".csv":
-        return canonicalize_input_columns(pd.read_csv(str(path)))
-    elif suffix in (".xlsx", ".xls", ".xlsm"):
-        return canonicalize_input_columns(pd.read_excel(str(path)))
-    else:
-        raise ValueError(
-            f"Unsupported file format: '{suffix}'. "
-            f"Expected .csv, .xlsx, .xls, or .xlsm."
-        )
+        return pd.read_csv(source, dtype=str)
+    if suffix in (".xlsx", ".xls", ".xlsm"):
+        return pd.read_excel(source, dtype=str)
+    raise ValueError(
+        f"Unsupported file format: '{suffix}'. Expected .csv, .xlsx, .xls, or .xlsm."
+    )
+
+
+def _read_input(path: Path) -> pd.DataFrame:
+    """Read an input file from disk, with its columns canonicalized."""
+    return canonicalize_input_columns(read_input_file(path, path.name))
 
 
 def _build_output_rows(

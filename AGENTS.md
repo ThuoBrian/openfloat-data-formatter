@@ -50,7 +50,9 @@ Real OpenFloat "Transaction Statement" exports (post-disbursement reports) used 
 
 **Duplicates**: same `airtime_phone` appearing more than once → warning (not auto-deduplicated).
 
-**Amount validation**: coerce to positive number; reject ≤0 or non-numeric; warn above KES 10,000 threshold.
+**Amount validation**: coerce to positive number; reject ≤0, non-numeric, non-finite (`nan`/`inf`), or empty (`Amount is empty` — an empty cell is NaN, and `NaN <= 0` is False, so without the guard it passed); warn above KES 10,000 threshold.
+
+**Reading input files**: every reader — `transform`, the API, both app uploaders — goes through `transformer.py::read_input_file`, which reads **every cell as text** (`dtype=str`). Left to infer, pandas reads an ID column as numbers (`00123` → `123`, and one blank cell makes it `123.0`). Amounts are coerced where they are used, by `normalize_amount`. Don't add a `pd.read_csv`/`pd.read_excel` of an input file anywhere else.
 
 **Input column names**: exports rename their columns per run, so every input
 field is resolved to a canonical name **once at ingestion** by
@@ -126,13 +128,13 @@ The package is installed editable via `uv sync` (pyproject + uv.lock are the sin
 
 - `scripts/` — one-off/maintenance scripts, e.g. `generate_processmaker_template.py` (regenerates `docs/processmaker-input-template.xlsx`)
 - `install/` plus `run.bat` at the repo root — the installer and launcher non-technical users actually touch: `install.ps1` ends by running `run.bat`, and GUIDE.md tells staff to double-click it. It installs uv if missing, syncs with `--no-dev`, and pauses on failure so the console window does not vanish
-- `start.bat`/`start.sh` at the repo root — the **developer** launchers (`api`/`ui`/`both`), documented in README.md. Everything they start binds to `127.0.0.1`: the API has no authentication, and both surfaces take uploads carrying names, phone numbers and staff IDs, so neither is ever served to a network. Streamlit and uvicorn both bind all interfaces unless told otherwise, so `--server.address`/`--host` are load-bearing, not decoration
+- `justfile` at the repo root — the **developer** command runner (`just ui`/`api`/`both`/`test`/`check`), documented in README.md; it replaced the old `start.bat`/`start.sh`. On Windows it runs recipes under PowerShell (`windows-shell`), so Git Bash is not needed. Everything it starts binds to `127.0.0.1`: the API has no authentication, and both surfaces take uploads carrying names, phone numbers and staff IDs, so neither is ever served to a network. Streamlit and uvicorn both bind all interfaces unless told otherwise, so `--server.address`/`--host` are load-bearing, not decoration
 - `docs/` — reference data files (table above) plus `GOTCHA.md` — development pitfalls and non-obvious behaviors; read it before debugging surprising pandas/openpyxl/template behavior
 - `.github/` — GitHub metadata: `PULL_REQUEST_TEMPLATE.md`, CI workflow (ruff + mypy on Ubuntu, pytest on Ubuntu + Windows)
 
 ## Build & Run Commands
 
-All commands run via uv (`uv sync` installs `.venv` with the package editable + dev tools; no activation or PYTHONPATH needed).
+All commands run via uv (`uv sync` installs `.venv` with the package editable + dev tools; no activation or PYTHONPATH needed). The `justfile` wraps the common ones — `just sync`, `just ui`, `just api`, `just both`, `just test [pytest args]`, `just lint`, `just typecheck`, `just check` (all three gates, as CI runs them), `just template`. CI calls uv directly, so a recipe must stay a thin wrapper over a command listed here; change both together.
 
 ```bash
 uv sync --python 3.12                        # Set up / refresh the environment

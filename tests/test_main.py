@@ -73,6 +73,14 @@ class TestValidate:
         )
         assert response.status_code == 400
 
+    def test_unparseable_file_rejected(self, client):
+        """A file pandas cannot parse is the client's problem: 400, not 500."""
+        response = client.post(
+            "/validate",
+            files={"file": ("input.csv", b"", "text/csv")},
+        )
+        assert response.status_code == 400
+
 
 class TestTransform:
     """POST /transform."""

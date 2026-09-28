@@ -38,12 +38,10 @@
 ## How was this tested?
 
 ```bash
-uv run ruff check .
-uv run mypy
-uv run pytest -v
+just check   # ruff + mypy + pytest
 ```
 
-<!-- (Set up first with `uv sync --python 3.12` if you haven't. Paste relevant
+<!-- (Set up first with `just sync` if you haven't. Paste relevant
 output below, or describe manual verification — e.g. ran through the Streamlit
 UI, sample file used.) -->
 

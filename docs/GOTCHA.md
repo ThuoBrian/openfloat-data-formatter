@@ -133,4 +133,19 @@ git add -f docs/processmaker-input-template.xlsx
 
 ---
 
+---
+
+## 10. Input files are read as text, and NaN is not "less than or equal to zero"
+
+**Problem:** Two blank-cell traps, both invisible to tests that build DataFrames by hand:
+
+- pandas infers types at read time. A numeric ID column loses its leading zeros (`00123` → `123`), and one blank cell makes the whole column `float64`, so `str(cell)` gives `123.0` — every Account Name in the file. The same float column once hid every duplicate phone, because the check stringified `712345678.0` before normalizing it.
+- A blank amount is NaN, and every comparison with NaN is False: `NaN <= 0` passed the positivity check, and `abs(NaN - x) > tol` never flags a mismatch.
+
+**Fix:** Read input through `transformer.py::read_input_file` (`dtype=str`), pass raw cells to `normalize_phone`/`normalize_amount` rather than `str()`-ing them, and guard NaN before any numeric comparison (`math.isfinite`).
+
+**Where it bites:** Any new reader of an input file, and any test of read-time behaviour — those must read a real file (see `tests/test_transformer.py::TestReadInputFile`), not a hand-built frame.
+
+---
+
 *Add new gotchas below as they're discovered.*
