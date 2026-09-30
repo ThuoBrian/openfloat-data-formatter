@@ -17,13 +17,16 @@ default:
 sync:
     uv sync --python 3.12
 
+# The leading `-` on ui/api ignores the exit code: closing the terminal or
+# Ctrl+C kills the server, which just would otherwise report as "recipe failed".
+
 # Streamlit UI on http://localhost:8501
 ui:
-    uv run streamlit run src/openfloat_formatter/ui/app.py --server.port 8501 --server.address=127.0.0.1
+    -uv run streamlit run src/openfloat_formatter/ui/app.py --server.port 8501 --server.address=127.0.0.1
 
 # FastAPI server on http://localhost:8000 (docs at /docs)
 api:
-    uv run uvicorn openfloat_formatter.main:app --reload --host 127.0.0.1 --port 8000
+    -uv run uvicorn openfloat_formatter.main:app --reload --host 127.0.0.1 --port 8000
 
 # API and UI together in this terminal; Ctrl+C stops both
 [parallel]
