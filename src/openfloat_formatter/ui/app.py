@@ -41,7 +41,7 @@ from openfloat_formatter.statement import build_statement_report
 from openfloat_formatter.transformer import read_input_file, transform_frame
 from openfloat_formatter.validator import remark_context
 from openfloat_formatter.writer import (
-    finance_file_stem,
+    remark_file_stem,
     write_finance_workbook,
     write_rejected_rows_workbook,
     write_statement_workbook,
@@ -449,8 +449,10 @@ def _download_name(statement_files: Sequence[Any], suffix: str, fallback: str) -
 
 
 def _download_report(report: StatementReport, statement_files: Sequence[Any]) -> None:
-    """Offer the two workbooks: the full report, and the finance sheet."""
+    """Offer the two workbooks: the project leads' report, and the finance sheet."""
     report_column, finance_column = st.columns(2)
+    # Both are filed by case, so they are named after the Remark when they can be.
+    stem = remark_file_stem(report)
 
     with report_column:
         sheets = "Successful and Unsuccessful"
@@ -459,14 +461,14 @@ def _download_report(report: StatementReport, statement_files: Sequence[Any]) ->
         st.download_button(
             label="📥 Download Statement Report (Excel)",
             data=write_statement_workbook(report).getvalue(),
-            file_name=_download_name(statement_files, "_report.xlsx", "statement_report.xlsx"),
+            file_name=f"{stem}_report.xlsx" if stem else _download_name(
+                statement_files, "_report.xlsx", "statement_report.xlsx"
+            ),
             mime=XLSX_MIME,
         )
-        st.caption(f"{sheets} — each sheet totalled at the bottom.")
+        st.caption(f"For project leads: {sheets} — each sheet totalled at the bottom.")
 
     with finance_column:
-        # Finance files this by case, so it is named after the Remark when it can be.
-        stem = finance_file_stem(report)
         st.download_button(
             label="💰 Download Finance Reconciliation (Excel)",
             data=write_finance_workbook(report).getvalue(),

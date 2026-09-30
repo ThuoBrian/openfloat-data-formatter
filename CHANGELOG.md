@@ -8,6 +8,12 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Statement Report is the project leads' copy, in the statement's own
+  columns.** Its Successful and Unsuccessful sheets now carry `Approval Id`
+  through `Approved/Rejected By`, then `Amount`, then `Reference Id` (so a
+  reversal still points at the original payment), replacing `Source File`,
+  `Row` and `Status`. The download is named after the Remark, ending in
+  `_report.xlsx`.
 - **Finance sheet carries the full statement columns.** The Finance
   Reconciliation download now has `Approval Id`, `Transaction Id`,
   `Transaction Type`, `Transaction Status`, `Date`, `Account Name`,
@@ -51,8 +57,7 @@ adheres to [Semantic Versioning](https://semver.org/).
   an `Unsuccessful` sheet (where Reversed rows land, with a blank Amount), plus
   a sheet per reconciliation bucket when a Process Maker input was uploaded.
   Every sheet ends in a bold `TOTAL` row over its amount columns. Rows carry the
-  statement's own columns plus the file each came from, which is what tells them
-  apart when several statements are uploaded at once.
+  statement's own columns.
 - The identifier column feeding the output `Account Name` is now **detected
   from the headers** instead of being read from a fixed column name, so exports
   calling it `Staff ID`, `Staff`, `Respondent ID`, `respo` or `Beneficiary Ref`

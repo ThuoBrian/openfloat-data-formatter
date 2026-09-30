@@ -13,22 +13,30 @@ from openfloat_formatter.models import StatementReport, StatementTransaction
 from openfloat_formatter.normalizer import parse_case_remark
 from openfloat_formatter.statement import build_statement_report
 from openfloat_formatter.writer import (
-    finance_file_stem,
+    remark_file_stem,
     write_finance_workbook,
     write_statement_workbook,
 )
 
 STATEMENT_HEADERS = [
-    "Source File",
-    "Row",
+    "Approval Id",
+    "Transaction Id",
+    "Transaction Type",
+    "Transaction Status",
     "Date",
     "Account Name",
     "Account Number",
-    "Status",
-    "Reference Id",
+    "Account Type",
     "Remark",
+    "Initiated By",
+    "Approved/Rejected By",
     "Amount",
+    "Reference Id",
 ]
+# 0-based, for rows read back with values_only
+S_STATUS = STATEMENT_HEADERS.index("Transaction Status")
+S_AMOUNT = STATEMENT_HEADERS.index("Amount")
+S_REFERENCE = STATEMENT_HEADERS.index("Reference Id")
 
 
 def _load(write, report):
@@ -92,7 +100,7 @@ class TestSheets:
 
     def test_successful_rows_only_on_the_first_sheet(self, report):
         workbook = _load(write_statement_workbook, report)
-        statuses = [row[5] for row in _rows(workbook["Successful"])][:-1]  # drop TOTAL
+        statuses = [row[S_STATUS] for row in _rows(workbook["Successful"])][:-1]  # drop TOTAL
         assert statuses == ["Successful", "Successful"]
         workbook.close()
 
@@ -101,14 +109,28 @@ class TestSheets:
         data = _rows(workbook["Unsuccessful"])[:-1]  # drop TOTAL
         assert len(data) == 1
         row = data[0]
-        assert row[5] == "Reversed"
-        assert row[6] == "REF9"  # Reference Id survives
-        assert row[8] is None  # Amount blank, not zero
+        assert row[S_STATUS] == "Reversed"
+        assert row[S_REFERENCE] == "REF9"  # Reference Id survives
+        assert row[S_AMOUNT] is None  # Amount blank, not zero
         workbook.close()
 
-    def test_source_file_recorded(self, report):
+    def test_statement_fields_carried_across(self, report):
         workbook = _load(write_statement_workbook, report)
-        assert _rows(workbook["Successful"])[0][0] == "august.xlsx"
+        row = _rows(workbook["Successful"])[0]
+        assert row[:S_AMOUNT] == (
+            "14886185",
+            "18488654",
+            "Payment",
+            "Successful",
+            GOOD_DATE,
+            "9019830",
+            254712345678,
+            "Partner",
+            GOOD_REMARK,
+            "Test User",
+            "Test Approver",
+        )
+        assert row[S_AMOUNT] == 100
         workbook.close()
 
 
@@ -120,14 +142,14 @@ class TestTotals:
         worksheet = workbook["Successful"]
         last = _rows(worksheet)[-1]
         assert last[0] == "TOTAL"
-        assert last[8] == 350.0  # 100 + 250
+        assert last[S_AMOUNT] == 350.0  # 100 + 250
         workbook.close()
 
     def test_total_row_is_bold_and_formatted(self, report):
         workbook = _load(write_statement_workbook, report)
         worksheet = workbook["Successful"]
         label = worksheet.cell(row=worksheet.max_row, column=1)
-        amount = worksheet.cell(row=worksheet.max_row, column=9)
+        amount = worksheet.cell(row=worksheet.max_row, column=S_AMOUNT + 1)
         assert label.font.bold
         assert amount.font.bold
         assert amount.number_format == "#,##0"
@@ -136,7 +158,7 @@ class TestTotals:
     def test_reversed_rows_total_to_zero(self, report):
         """The Reversed row carries no amount, so its sheet totals nothing."""
         workbook = _load(write_statement_workbook, report)
-        assert _rows(workbook["Unsuccessful"])[-1][8] == 0.0
+        assert _rows(workbook["Unsuccessful"])[-1][S_AMOUNT] == 0.0
         workbook.close()
 
     def test_empty_sheet_has_no_total_row(self, make_statement_workbook):
@@ -154,7 +176,8 @@ class TestCellTypes:
 
     def test_account_number_written_as_a_number(self, report):
         workbook = _load(write_statement_workbook, report)
-        cell = workbook["Successful"].cell(row=2, column=5)
+        column = STATEMENT_HEADERS.index("Account Number") + 1
+        cell = workbook["Successful"].cell(row=2, column=column)
         assert cell.value == 254712345678
         assert isinstance(cell.value, int)
         assert cell.number_format == "0"
@@ -181,7 +204,7 @@ class TestCellTypes:
             ]
         )
         workbook = _load(write_statement_workbook, report)
-        cell = workbook["Successful"].cell(row=2, column=8)
+        cell = workbook["Successful"].cell(row=2, column=STATEMENT_HEADERS.index("Remark") + 1)
         assert cell.data_type != "f"
         assert str(cell.value).startswith("'=")
         workbook.close()
@@ -405,8 +428,8 @@ class TestFinanceWorkbook:
 OTHER_REMARK = "C#37181 22505AA RESP AIRTIME-KSH500 d05"
 
 
-class TestFinanceFileStem:
-    """The finance download is named after its Remark, since finance files by case."""
+class TestRemarkFileStem:
+    """Both statement downloads are named after the Remark, since they are filed by case."""
 
     def test_single_remark_names_the_file(self):
         report = StatementReport(
@@ -415,7 +438,7 @@ class TestFinanceFileStem:
                 _model_txn("Failed", False, 100.0, phone="254798765432"),
             ]
         )
-        assert finance_file_stem(report) == GOOD_REMARK
+        assert remark_file_stem(report) == GOOD_REMARK
 
     def test_several_cases_join_their_numbers_in_order(self):
         report = StatementReport(
@@ -425,7 +448,7 @@ class TestFinanceFileStem:
                 _model_txn("Successful", True, 100.0),
             ]
         )
-        assert finance_file_stem(report) == "C#37154_C#37181"
+        assert remark_file_stem(report) == "C#37154_C#37181"
 
     def test_unparsed_remarks_are_skipped_when_joining(self):
         report = StatementReport(
@@ -434,7 +457,7 @@ class TestFinanceFileStem:
                 _model_txn("Successful", True, 100.0, remark="no case here"),
             ]
         )
-        assert finance_file_stem(report) == "C#37154"
+        assert remark_file_stem(report) == "C#37154"
 
     def test_nothing_usable_means_none(self):
         report = StatementReport(
@@ -443,11 +466,11 @@ class TestFinanceFileStem:
                 _model_txn("Successful", True, 100.0, remark="second"),
             ]
         )
-        assert finance_file_stem(report) is None
-        assert finance_file_stem(StatementReport()) is None
+        assert remark_file_stem(report) is None
+        assert remark_file_stem(StatementReport()) is None
 
     def test_unsafe_file_name_characters_replaced(self):
         report = StatementReport(
             transactions=[_model_txn("Successful", True, 100.0, remark='case 12/3: "x"?.')]
         )
-        assert finance_file_stem(report) == "case 12_3_ _x__"
+        assert remark_file_stem(report) == "case 12_3_ _x__"

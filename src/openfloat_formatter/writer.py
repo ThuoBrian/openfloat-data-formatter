@@ -55,20 +55,24 @@ _PHONE_COLUMNS = ("Account Number", "Notification Phone Number")
 _PHONE_NUMBER_FORMAT = "0"
 
 # --- Statement report workbook -------------------------------------------------
-# One row per statement transaction, in the export's own terms plus the file it
-# came from — which is what tells rows apart once several statements are
-# uploaded together.
-_STATEMENT_COLUMNS = (
-    "Source File",
-    "Row",
+# The OpenFloat statement's own columns, shared by the project leads' report and
+# the finance sheet so the two cannot drift apart. Each adds its money columns.
+_TRANSACTION_COLUMNS = (
+    "Approval Id",
+    "Transaction Id",
+    "Transaction Type",
+    "Transaction Status",
     "Date",
     "Account Name",
     "Account Number",
-    "Status",
-    "Reference Id",
+    "Account Type",
     "Remark",
-    "Amount",
+    "Initiated By",
+    "Approved/Rejected By",
 )
+# One row per statement transaction. Reference Id comes last: it is what ties a
+# Reversed row back to the payment it reversed.
+_STATEMENT_COLUMNS = (*_TRANSACTION_COLUMNS, "Amount", "Reference Id")
 # One row per reconciled beneficiary; the bucket is the sheet name.
 _RECONCILIATION_COLUMNS = (
     "Phone",
@@ -88,17 +92,7 @@ _TOTAL_LABEL = "TOTAL"
 # with the failures left visible (shaded, Debit blank) as the evidence for why
 # the total is not simply everything that was uploaded.
 _FINANCE_COLUMNS = (
-    "Approval Id",
-    "Transaction Id",
-    "Transaction Type",
-    "Transaction Status",
-    "Date",
-    "Account Name",
-    "Account Number",
-    "Account Type",
-    "Remark",
-    "Initiated By",
-    "Approved/Rejected By",
+    *_TRANSACTION_COLUMNS,
     "Amount",
     "Commission Amount",
     "Debit",
@@ -348,19 +342,30 @@ def _write_sheet(
             cell.number_format = _AMOUNT_NUMBER_FORMAT
 
 
+def _transaction_cells(transaction: StatementTransaction) -> list[object]:
+    """A transaction's `_TRANSACTION_COLUMNS` values, in that order."""
+    return [
+        transaction.approval_id,
+        transaction.transaction_id,
+        transaction.transaction_type,
+        transaction.status,
+        transaction.date_raw,  # as the export wrote it, not a reformatted date
+        transaction.account_name,
+        _as_phone_number(transaction.account_number),
+        transaction.account_type,
+        transaction.remark,
+        transaction.initiated_by,
+        transaction.approved_rejected_by,
+    ]
+
+
 def _statement_rows(transactions: Sequence[StatementTransaction]) -> list[list[object]]:
     """Statement transactions as sheet rows, in `_STATEMENT_COLUMNS` order."""
     return [
         [
-            transaction.file_name,
-            transaction.row_number,
-            transaction.date_raw,  # as the export wrote it, not a reformatted date
-            transaction.account_name,
-            _as_phone_number(transaction.account_number),
-            transaction.status,
-            transaction.reference_id,
-            transaction.remark,
+            *_transaction_cells(transaction),
             transaction.amount,  # None on a Reversed row -> blank cell
+            transaction.reference_id,
         ]
         for transaction in transactions
     ]
@@ -451,17 +456,7 @@ def _finance_rows(transactions: Sequence[StatementTransaction]) -> list[list[obj
     """
     return [
         [
-            transaction.approval_id,
-            transaction.transaction_id,
-            transaction.transaction_type,
-            transaction.status,
-            transaction.date_raw,
-            transaction.account_name,
-            _as_phone_number(transaction.account_number),
-            transaction.account_type,
-            transaction.remark,
-            transaction.initiated_by,
-            transaction.approved_rejected_by,
+            *_transaction_cells(transaction),
             transaction.amount,
             transaction.commission_amount,
             transaction.amount if transaction.is_successful else None,
@@ -472,8 +467,8 @@ def _finance_rows(transactions: Sequence[StatementTransaction]) -> list[list[obj
     ]
 
 
-def finance_file_stem(report: StatementReport) -> str | None:
-    """Name the finance download after its Remark, as finance files it by case.
+def remark_file_stem(report: StatementReport) -> str | None:
+    """Name a statement download after its Remark, as it is filed by case.
 
     One distinct Remark on the statement → that Remark. Several → the distinct
     case numbers (`C#37154_C#37181`), in statement order; remarks that do not

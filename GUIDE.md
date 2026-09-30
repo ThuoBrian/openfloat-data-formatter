@@ -104,11 +104,14 @@ threshold — sit under **Advanced settings** in the sidebar.
 3. Optional: also upload your original Process Maker file. The app then
    shows, per phone number, who was paid, who was on the statement but
    unpaid, and who never appeared on the statement at all.
-4. Click **Download Statement Report (Excel)** to save the whole thing as a
-   workbook: a **Successful** sheet, an **Unsuccessful** sheet (this is where
-   reversed payments go), and — if you uploaded the Process Maker file — one
+4. Click **Download Statement Report (Excel)** for the project leads' copy:
+   every row carries the statement's own columns (Approval Id through Amount,
+   plus Reference Id), in a workbook with a **Successful** sheet, an
+   **Unsuccessful** sheet (this is where reversed payments go), and — if you
+   uploaded the Process Maker file — one
    sheet per reconciliation list. Each sheet ends with a bold **TOTAL** row
-   summing its amounts.
+   summing its amounts. It is saved under the case reference too, ending in
+   `_report.xlsx`.
 5. Click **Download Finance Reconciliation (Excel)** for the version finance
    asks for: every transaction on one sheet with all the statement's columns (Approval Id
    through Balance After) and a **Debit** column, where the
