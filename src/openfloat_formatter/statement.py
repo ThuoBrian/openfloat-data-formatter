@@ -70,6 +70,14 @@ REQUIRED_STATEMENT_COLUMNS = [
     "Amount",
 ]
 
+# Money columns a footer row may fill. 'Commission Amount', 'Credit' and
+# 'Balance After' are optional, read by name when an export carries them. The
+# export's own 'Debit', if any, is not read: finance's Debit is derived from
+# Transaction Status (see writer._finance_rows).
+_MONEY_COLUMNS = frozenset(
+    {"Amount", "Commission Amount", "Debit", "Credit", "Balance After"}
+)
+
 _STATEMENT_DATE_FORMAT = "%d/%m/%Y %I:%M:%S %p"
 _STATEMENT_DATE_FALLBACK_FORMATS = ("%d/%m/%Y %H:%M:%S", "%d/%m/%Y")
 _EXCEL_SERIAL_EPOCH = datetime(1899, 12, 30)  # Excel day 0 (Windows convention)
@@ -148,21 +156,27 @@ def _is_blank(value: Any) -> bool:
 
 
 def _is_footer_row(row_map: dict[str, Any]) -> bool:
-    """True for the grand-total footer row: every column empty except Amount."""
+    """True for the grand-total footer row: Amount filled, every non-money column empty."""
     return all(
-        _is_blank(value) for name, value in row_map.items() if name != "Amount"
+        _is_blank(value) for name, value in row_map.items() if name not in _MONEY_COLUMNS
     ) and not _is_blank(row_map.get("Amount"))
 
 
-def _parse_amount(raw: Any, file_name: str, row_number: int, warnings: list[str]) -> float | None:
-    """Coerce an Amount cell; None/blank stays None (Reversed rows), malformed warns."""
+def _parse_amount(
+    raw: Any,
+    file_name: str,
+    row_number: int,
+    warnings: list[str],
+    column: str = "Amount",
+) -> float | None:
+    """Coerce a money cell; None/blank stays None (Reversed rows), malformed warns."""
     if _is_blank(raw):
         return None
     try:
         return float(raw)
     except (ValueError, TypeError):
         warnings.append(
-            f"{file_name} row {row_number}: Amount {raw!r} is not numeric — recorded as empty"
+            f"{file_name} row {row_number}: {column} {raw!r} is not numeric — recorded as empty"
         )
         return None
 
@@ -221,6 +235,16 @@ def _build_transaction(
         approved_rejected_by=_coerce_cell(row_map.get("Approved/Rejected By")),
         reference_id=_coerce_cell(row_map.get("Reference Id")),
         amount=_parse_amount(row_map.get("Amount"), file_name, row_number, warnings),
+        commission_amount=_parse_amount(
+            row_map.get("Commission Amount"), file_name, row_number, warnings,
+            "Commission Amount",
+        ),
+        credit=_parse_amount(
+            row_map.get("Credit"), file_name, row_number, warnings, "Credit"
+        ),
+        balance_after=_parse_amount(
+            row_map.get("Balance After"), file_name, row_number, warnings, "Balance After"
+        ),
     )
 
 

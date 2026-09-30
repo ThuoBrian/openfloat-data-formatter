@@ -112,6 +112,8 @@ def make_statement_workbook():
             matching the C#37154-style export), False → 12-column header
             (matching the C#37181-style export).
         footer_total: appends the grand-total footer row when not None.
+        extra_columns: optional headers appended after 'Amount' (e.g.
+            'Commission Amount', 'Balance After'), filled from each row dict.
         sheet_name: sheet title (defaults to 'Transaction Statement').
 
     Returns a BytesIO ready for parse_statement_file / build_statement_report.
@@ -122,6 +124,7 @@ def make_statement_workbook():
         include_reference_id=True,
         footer_total=None,
         sheet_name="Transaction Statement",
+        extra_columns=(),
     ):
         header = list(STATEMENT_HEADER_BASE)
         # The real header order puts 'Transaction Type' after 'Transaction Id'
@@ -129,6 +132,7 @@ def make_statement_workbook():
         if include_reference_id:
             header.append("Reference Id")
         header.append("Amount")
+        header.extend(extra_columns)
 
         workbook = Workbook()
         worksheet = workbook.active
@@ -137,7 +141,9 @@ def make_statement_workbook():
         for row in rows or []:
             worksheet.append([row.get(column, None) for column in header])
         if footer_total is not None:
-            worksheet.append([None] * (len(header) - 1) + [footer_total])
+            footer: list[object] = [None] * len(header)
+            footer[header.index("Amount")] = footer_total
+            worksheet.append(footer)
 
         buffer = BytesIO()
         workbook.save(buffer)

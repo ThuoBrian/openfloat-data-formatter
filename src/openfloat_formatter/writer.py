@@ -24,6 +24,7 @@ TOTAL row, the way OpenFloat's own statement export carries a grand total.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable, Sequence
 from io import BytesIO
 from pathlib import Path
@@ -86,8 +87,29 @@ _TOTAL_LABEL = "TOTAL"
 # What finance posts: one Debit column holding only money that actually moved,
 # with the failures left visible (shaded, Debit blank) as the evidence for why
 # the total is not simply everything that was uploaded.
-_FINANCE_COLUMNS = ("Date", "Account Name", "Phone", "Case", "Status", "Debit")
+_FINANCE_COLUMNS = (
+    "Approval Id",
+    "Transaction Id",
+    "Transaction Type",
+    "Transaction Status",
+    "Date",
+    "Account Name",
+    "Account Number",
+    "Account Type",
+    "Remark",
+    "Initiated By",
+    "Approved/Rejected By",
+    "Amount",
+    "Commission Amount",
+    "Debit",
+    "Credit",
+    "Balance After",
+)
+_FINANCE_MONEY_COLUMNS = ("Amount", "Commission Amount", "Debit", "Credit", "Balance After")
 _FINANCE_SHEET = "Finance Reconciliation"
+# Characters Windows refuses in a file name, plus control characters.
+_UNSAFE_FILE_NAME_CHARS = re.compile(r'[\\/:*?"<>|\x00-\x1f]')
+_MAX_FILE_STEM = 150
 
 _REJECTED_SHEET = "Rows To Fix"
 _REJECTED_ROW_COLUMN = "Row"
@@ -263,6 +285,7 @@ def _write_sheet(
     phone_columns: Sequence[str] = (),
     flag_row: Callable[[Sequence[object]], bool] | None = None,
     totals: bool = True,
+    total_columns: Sequence[str] | None = None,
 ) -> None:
     """Write one sheet: bold header, the rows, then a bold TOTAL row.
 
@@ -277,6 +300,8 @@ def _write_sheet(
         totals: Write the TOTAL footer. False for a sheet that has nothing to
             sum — the rejected-rows list is a worklist, where a bold TOTAL over
             blank columns reads as a broken sheet rather than a figure.
+        total_columns: Which amount columns the TOTAL row sums; defaults to all
+            of `amount_columns`. The rest are still number-formatted.
     """
     header_font = Font(bold=True)
     worksheet.append(list(columns))
@@ -310,14 +335,16 @@ def _write_sheet(
 
     total_row: list[object] = [""] * len(columns)
     total_row[0] = _TOTAL_LABEL
-    for name in amount_columns:
+    summed = amount_columns if total_columns is None else total_columns
+    for name in summed:
         index = columns.index(name)
         total_row[index] = _column_total(rows, index)
     worksheet.append(total_row)
+    summed_indexes = [columns.index(name) + 1 for name in summed]
     for index in range(1, len(columns) + 1):
         cell = worksheet.cell(row=worksheet.max_row, column=index)
         cell.font = header_font
-        if index in amount_indexes:
+        if index in summed_indexes:
             cell.number_format = _AMOUNT_NUMBER_FORMAT
 
 
@@ -411,32 +438,64 @@ def write_statement_workbook(report: StatementReport) -> BytesIO:
     return _to_buffer(workbook)
 
 
-def _case_reference(transaction: StatementTransaction) -> str:
-    """The case this payment belongs to, as finance would cite it."""
-    if transaction.remark_parts is not None:
-        return f"C#{transaction.remark_parts.case_number}"
-    return transaction.remark
-
-
 def _finance_rows(transactions: Sequence[StatementTransaction]) -> list[list[object]]:
     """Statement transactions as finance rows, in `_FINANCE_COLUMNS` order.
 
     Debit is filled **only** for a successful transaction. Keying off
     `is_successful` rather than off a present amount is the whole point: a
     Reversed row happens to arrive with no amount, but a Failed or Pending one
-    need not, and none of them are money that left the float.
+    need not, and none of them are money that left the float. Amount is the
+    statement's own figure, kept as-is so a failed row still shows what was
+    attempted. Commission, Credit and Balance After are blank unless the export
+    carried those columns.
     """
     return [
         [
+            transaction.approval_id,
+            transaction.transaction_id,
+            transaction.transaction_type,
+            transaction.status,
             transaction.date_raw,
             transaction.account_name,
             _as_phone_number(transaction.account_number),
-            _case_reference(transaction),
-            transaction.status,
+            transaction.account_type,
+            transaction.remark,
+            transaction.initiated_by,
+            transaction.approved_rejected_by,
+            transaction.amount,
+            transaction.commission_amount,
             transaction.amount if transaction.is_successful else None,
+            transaction.credit,
+            transaction.balance_after,
         ]
         for transaction in transactions
     ]
+
+
+def finance_file_stem(report: StatementReport) -> str | None:
+    """Name the finance download after its Remark, as finance files it by case.
+
+    One distinct Remark on the statement → that Remark. Several → the distinct
+    case numbers (`C#37154_C#37181`), in statement order; remarks that do not
+    parse are skipped. The Remark is free text from an external file, so the
+    result is made safe for a Windows file name.
+
+    Returns:
+        The file name without extension, or None when there is nothing usable
+        and the caller should keep its default name.
+    """
+    remarks = list(dict.fromkeys(t.remark for t in report.transactions if t.remark))
+    if len(remarks) == 1:
+        stem = remarks[0]
+    else:
+        cases = dict.fromkeys(
+            f"C#{t.remark_parts.case_number}"
+            for t in report.transactions
+            if t.remark_parts is not None
+        )
+        stem = "_".join(cases)
+    stem = _UNSAFE_FILE_NAME_CHARS.sub("_", stem)[:_MAX_FILE_STEM].rstrip(" .")
+    return stem or None
 
 
 def write_finance_workbook(report: StatementReport) -> BytesIO:
@@ -463,9 +522,10 @@ def write_finance_workbook(report: StatementReport) -> BytesIO:
         sheet,
         _FINANCE_COLUMNS,
         rows,
-        amount_columns=("Debit",),
-        phone_columns=("Phone",),
+        amount_columns=_FINANCE_MONEY_COLUMNS,
+        phone_columns=("Account Number",),
         flag_row=lambda row: row[debit_index] is None,
+        total_columns=("Debit",),
     )
     return _to_buffer(workbook)
 

@@ -12,7 +12,11 @@ from helpers import GOOD_DATE, GOOD_REMARK, statement_row
 from openfloat_formatter.models import StatementReport, StatementTransaction
 from openfloat_formatter.normalizer import parse_case_remark
 from openfloat_formatter.statement import build_statement_report
-from openfloat_formatter.writer import write_finance_workbook, write_statement_workbook
+from openfloat_formatter.writer import (
+    finance_file_stem,
+    write_finance_workbook,
+    write_statement_workbook,
+)
 
 STATEMENT_HEADERS = [
     "Source File",
@@ -217,7 +221,32 @@ class TestReconciliationSheets:
         workbook.close()
 
 
-FINANCE_HEADERS = ["Date", "Account Name", "Phone", "Case", "Status", "Debit"]
+FINANCE_HEADERS = [
+    "Approval Id",
+    "Transaction Id",
+    "Transaction Type",
+    "Transaction Status",
+    "Date",
+    "Account Name",
+    "Account Number",
+    "Account Type",
+    "Remark",
+    "Initiated By",
+    "Approved/Rejected By",
+    "Amount",
+    "Commission Amount",
+    "Debit",
+    "Credit",
+    "Balance After",
+]
+STATUS = FINANCE_HEADERS.index("Transaction Status") + 1
+PHONE = FINANCE_HEADERS.index("Account Number") + 1
+REMARK = FINANCE_HEADERS.index("Remark") + 1
+AMOUNT = FINANCE_HEADERS.index("Amount") + 1
+COMMISSION = FINANCE_HEADERS.index("Commission Amount") + 1
+DEBIT = FINANCE_HEADERS.index("Debit") + 1
+CREDIT = FINANCE_HEADERS.index("Credit") + 1
+BALANCE = FINANCE_HEADERS.index("Balance After") + 1
 
 
 def _model_txn(status, is_successful, amount, remark=GOOD_REMARK, phone="254712345678"):
@@ -249,11 +278,30 @@ class TestFinanceWorkbook:
         assert [cell.value for cell in workbook.active[1]] == FINANCE_HEADERS
         workbook.close()
 
+    def test_statement_fields_carried_across(self, report):
+        workbook = _load(write_finance_workbook, report)
+        row = _rows(workbook.active)[0]
+        assert row[: FINANCE_HEADERS.index("Amount")] == (
+            "14886185",
+            "18488654",
+            "Payment",
+            "Successful",
+            GOOD_DATE,
+            "9019830",
+            254712345678,
+            "Partner",
+            GOOD_REMARK,
+            "Test User",
+            "Test Approver",
+        )
+        workbook.close()
+
     def test_successful_row_carries_its_amount_as_debit(self, report):
         workbook = _load(write_finance_workbook, report)
         worksheet = workbook.active
-        assert worksheet.cell(row=2, column=6).value == 100
-        assert worksheet.cell(row=2, column=5).value == "Successful"
+        assert worksheet.cell(row=2, column=DEBIT).value == 100
+        assert worksheet.cell(row=2, column=AMOUNT).value == 100
+        assert worksheet.cell(row=2, column=STATUS).value == "Successful"
         workbook.close()
 
     def test_reversed_row_is_shaded_with_no_debit(self, report):
@@ -261,9 +309,9 @@ class TestFinanceWorkbook:
         worksheet = workbook.active
         reversed_row = next(
             row for row in range(2, worksheet.max_row + 1)
-            if worksheet.cell(row=row, column=5).value == "Reversed"
+            if worksheet.cell(row=row, column=STATUS).value == "Reversed"
         )
-        assert worksheet.cell(row=reversed_row, column=6).value is None
+        assert worksheet.cell(row=reversed_row, column=DEBIT).value is None
         assert worksheet.cell(row=reversed_row, column=1).fill.start_color.rgb == "00FFC7CE"
         workbook.close()
 
@@ -272,19 +320,20 @@ class TestFinanceWorkbook:
         worksheet = workbook.active
         total_row = worksheet.max_row
         assert worksheet.cell(row=total_row, column=1).value == "TOTAL"
-        assert worksheet.cell(row=total_row, column=6).value == 350.0  # 100 + 250
-        assert worksheet.cell(row=total_row, column=6).font.bold
-        assert worksheet.cell(row=total_row, column=6).number_format == "#,##0"
+        assert worksheet.cell(row=total_row, column=DEBIT).value == 350.0  # 100 + 250
+        assert worksheet.cell(row=total_row, column=DEBIT).font.bold
+        assert worksheet.cell(row=total_row, column=DEBIT).number_format == "#,##0"
         # "they only want the total for Debit" — nothing else is totalled
-        for column in range(2, 6):
-            assert worksheet.cell(row=total_row, column=column).value in ("", None)
+        for column in range(2, len(FINANCE_HEADERS) + 1):
+            if column != DEBIT:
+                assert worksheet.cell(row=total_row, column=column).value in ("", None)
         workbook.close()
 
     def test_failed_row_with_an_amount_is_excluded(self):
         """The reason Debit keys off is_successful, not off a missing amount.
 
         A Reversed row happens to arrive with no amount; a Failed one need not,
-        and it is still not money that left the float.
+        and it is still not money that left the float. Amount still shows it.
         """
         report = StatementReport(
             transactions=[
@@ -294,14 +343,15 @@ class TestFinanceWorkbook:
         )
         workbook = _load(write_finance_workbook, report)
         worksheet = workbook.active
-        assert worksheet.cell(row=3, column=5).value == "Failed"
-        assert worksheet.cell(row=3, column=6).value is None
+        assert worksheet.cell(row=3, column=STATUS).value == "Failed"
+        assert worksheet.cell(row=3, column=AMOUNT).value == 600.0
+        assert worksheet.cell(row=3, column=DEBIT).value is None
         assert worksheet.cell(row=3, column=1).fill.start_color.rgb == "00FFC7CE"
-        assert worksheet.cell(row=worksheet.max_row, column=6).value == 400.0
+        assert worksheet.cell(row=worksheet.max_row, column=DEBIT).value == 400.0
         workbook.close()
 
-    def test_case_column(self):
-        """The parsed case number, or the raw remark when it does not parse."""
+    def test_remark_written_in_full(self):
+        """The whole reference, not just the case number, and verbatim when unparsed."""
         report = StatementReport(
             transactions=[
                 _model_txn("Successful", True, 100.0),
@@ -310,13 +360,38 @@ class TestFinanceWorkbook:
         )
         workbook = _load(write_finance_workbook, report)
         worksheet = workbook.active
-        assert worksheet.cell(row=2, column=4).value == "C#37154"
-        assert worksheet.cell(row=3, column=4).value == "no case here"
+        assert worksheet.cell(row=2, column=REMARK).value == GOOD_REMARK
+        assert worksheet.cell(row=3, column=REMARK).value == "no case here"
+        workbook.close()
+
+    def test_optional_columns_blank_when_export_lacks_them(self, report):
+        workbook = _load(write_finance_workbook, report)
+        worksheet = workbook.active
+        for column in (COMMISSION, CREDIT, BALANCE):
+            assert worksheet.cell(row=2, column=column).value is None
+        workbook.close()
+
+    def test_optional_columns_carried_when_present(self, make_statement_workbook):
+        """An export that carries Commission/Credit/Balance After passes them through."""
+        buffer = make_statement_workbook(
+            rows=[
+                statement_row(
+                    **{"Commission Amount": 2, "Credit": 0, "Balance After": 9900}
+                )
+            ],
+            extra_columns=["Commission Amount", "Credit", "Balance After"],
+        )
+        workbook = _load(write_finance_workbook, build_statement_report([buffer]))
+        worksheet = workbook.active
+        assert worksheet.cell(row=2, column=COMMISSION).value == 2
+        assert worksheet.cell(row=2, column=CREDIT).value == 0
+        assert worksheet.cell(row=2, column=BALANCE).value == 9900
+        assert worksheet.cell(row=2, column=BALANCE).number_format == "#,##0"
         workbook.close()
 
     def test_phone_written_as_a_number(self, report):
         workbook = _load(write_finance_workbook, report)
-        cell = workbook.active.cell(row=2, column=3)
+        cell = workbook.active.cell(row=2, column=PHONE)
         assert cell.value == 254712345678
         assert cell.number_format == "0"
         workbook.close()
@@ -325,3 +400,54 @@ class TestFinanceWorkbook:
         workbook = _load(write_finance_workbook, StatementReport())
         assert workbook.active.max_row == 1
         workbook.close()
+
+
+OTHER_REMARK = "C#37181 22505AA RESP AIRTIME-KSH500 d05"
+
+
+class TestFinanceFileStem:
+    """The finance download is named after its Remark, since finance files by case."""
+
+    def test_single_remark_names_the_file(self):
+        report = StatementReport(
+            transactions=[
+                _model_txn("Successful", True, 100.0),
+                _model_txn("Failed", False, 100.0, phone="254798765432"),
+            ]
+        )
+        assert finance_file_stem(report) == GOOD_REMARK
+
+    def test_several_cases_join_their_numbers_in_order(self):
+        report = StatementReport(
+            transactions=[
+                _model_txn("Successful", True, 100.0),
+                _model_txn("Successful", True, 100.0, remark=OTHER_REMARK),
+                _model_txn("Successful", True, 100.0),
+            ]
+        )
+        assert finance_file_stem(report) == "C#37154_C#37181"
+
+    def test_unparsed_remarks_are_skipped_when_joining(self):
+        report = StatementReport(
+            transactions=[
+                _model_txn("Successful", True, 100.0),
+                _model_txn("Successful", True, 100.0, remark="no case here"),
+            ]
+        )
+        assert finance_file_stem(report) == "C#37154"
+
+    def test_nothing_usable_means_none(self):
+        report = StatementReport(
+            transactions=[
+                _model_txn("Successful", True, 100.0, remark="first"),
+                _model_txn("Successful", True, 100.0, remark="second"),
+            ]
+        )
+        assert finance_file_stem(report) is None
+        assert finance_file_stem(StatementReport()) is None
+
+    def test_unsafe_file_name_characters_replaced(self):
+        report = StatementReport(
+            transactions=[_model_txn("Successful", True, 100.0, remark='case 12/3: "x"?.')]
+        )
+        assert finance_file_stem(report) == "case 12_3_ _x__"

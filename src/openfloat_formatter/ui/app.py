@@ -41,6 +41,7 @@ from openfloat_formatter.statement import build_statement_report
 from openfloat_formatter.transformer import read_input_file, transform_frame
 from openfloat_formatter.validator import remark_context
 from openfloat_formatter.writer import (
+    finance_file_stem,
     write_finance_workbook,
     write_rejected_rows_workbook,
     write_statement_workbook,
@@ -464,10 +465,12 @@ def _download_report(report: StatementReport, statement_files: Sequence[Any]) ->
         st.caption(f"{sheets} — each sheet totalled at the bottom.")
 
     with finance_column:
+        # Finance files this by case, so it is named after the Remark when it can be.
+        stem = finance_file_stem(report)
         st.download_button(
             label="💰 Download Finance Reconciliation (Excel)",
             data=write_finance_workbook(report).getvalue(),
-            file_name=_download_name(
+            file_name=f"{stem}.xlsx" if stem else _download_name(
                 statement_files, "_finance.xlsx", "finance_reconciliation.xlsx"
             ),
             mime=XLSX_MIME,

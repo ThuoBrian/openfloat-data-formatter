@@ -44,7 +44,7 @@ who was paid, who wasn't, and who never appeared on the statement.
 
 The report downloads as an Excel workbook, with separate sheets for successful
 payments, unsuccessful or reversed ones, and the reconciliation lists, each with
-a total. A second download is the sheet finance posts from: a **Debit** column
+a total. A second download is the sheet finance posts from: every statement column plus a **Debit** column
 that totals only the payments that went through, with the failed ones shaded
 instead of removed.
 

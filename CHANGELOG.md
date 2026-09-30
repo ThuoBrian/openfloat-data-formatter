@@ -8,6 +8,16 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Finance sheet carries the full statement columns.** The Finance
+  Reconciliation download now has `Approval Id`, `Transaction Id`,
+  `Transaction Type`, `Transaction Status`, `Date`, `Account Name`,
+  `Account Number`, `Account Type`, `Remark`, `Initiated By`,
+  `Approved/Rejected By`, `Amount`, `Commission Amount`, `Debit`, `Credit` and
+  `Balance After`, replacing the short `Phone`/`Case`/`Status` layout.
+  `Commission Amount`, `Credit` and `Balance After` are copied from the
+  statement when the export has them and left blank when it doesn't. The TOTAL
+  is still under Debit only. The download is now named after the Remark (or
+  the case numbers joined, `C#37154_C#37181`, when there are several cases).
 - **Desktop and Start menu shortcuts.** The installer now adds an "OpenFloat
   Data Formatter" shortcut in both places, so staff start the app with a
   double-click instead of finding `run.bat` among the code files. Rerunning the

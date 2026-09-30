@@ -129,6 +129,10 @@ class StatementTransaction(BaseModel):
     approved_rejected_by: str = ""
     reference_id: str = ""  # present on Reversed rows: original transaction id
     amount: float | None = None  # None on Reversed rows / empty cells
+    # Read by name when an export carries them; None when absent or empty.
+    commission_amount: float | None = None
+    credit: float | None = None
+    balance_after: float | None = None
 
 
 class StatementFileSummary(BaseModel):

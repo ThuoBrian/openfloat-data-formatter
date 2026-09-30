@@ -6,6 +6,7 @@ and are not tracked by git — the test suite must never reference them.
 """
 
 from datetime import datetime
+from io import BytesIO
 
 import pandas as pd
 import pytest
@@ -116,6 +117,57 @@ class TestParseStatementFile:
         assert len(transactions) == 1
         assert footer_total == 100.0
 
+    def test_optional_money_columns_read_by_name(self, make_statement_workbook):
+        """Commission Amount / Credit / Balance After parse when present, else None."""
+        buffer = make_statement_workbook(
+            rows=[
+                statement_row(**{"Commission Amount": 2, "Balance After": 9900}),
+                statement_row(),
+            ],
+            extra_columns=["Commission Amount", "Credit", "Balance After"],
+        )
+        transactions, _footer_total, _warnings, errors = parse_statement_file(buffer)
+        assert errors == []
+        assert transactions[0].commission_amount == 2.0
+        assert transactions[0].credit is None
+        assert transactions[0].balance_after == 9900.0
+        assert transactions[1].commission_amount is None
+
+        plain = make_statement_workbook(rows=[statement_row()])
+        transaction = parse_statement_file(plain)[0][0]
+        assert (transaction.commission_amount, transaction.credit, transaction.balance_after) == (
+            None,
+            None,
+            None,
+        )
+
+    def test_footer_with_other_money_totals_still_detected(self, make_statement_workbook):
+        """A footer that also totals Commission is still the footer, not a transaction."""
+        from openpyxl import load_workbook
+
+        buffer = make_statement_workbook(
+            rows=[statement_row()], footer_total=100, extra_columns=["Commission Amount"]
+        )
+        workbook = load_workbook(buffer)
+        worksheet = workbook.active
+        worksheet.cell(row=worksheet.max_row, column=worksheet.max_column, value=2)
+        modified = BytesIO()
+        workbook.save(modified)
+        modified.seek(0)
+
+        transactions, footer_total, _warnings, errors = parse_statement_file(modified)
+        assert errors == []
+        assert len(transactions) == 1
+        assert footer_total == 100.0
+
+    def test_non_numeric_optional_column_warns_by_name(self, make_statement_workbook):
+        buffer = make_statement_workbook(
+            rows=[statement_row(**{"Credit": "n/a"})], extra_columns=["Credit"]
+        )
+        transactions, _footer_total, warnings, _errors = parse_statement_file(buffer)
+        assert transactions[0].credit is None
+        assert any("Credit 'n/a' is not numeric" in warning for warning in warnings)
+
     def test_blank_rows_skipped(self, make_statement_workbook):
         """Fully blank rows in the middle of the sheet are skipped."""
         from openpyxl import load_workbook
@@ -163,7 +215,6 @@ class TestParseStatementFile:
 
     def test_missing_required_column_returns_error(self, make_statement_workbook):
         """A sheet missing a required column yields an error and no transactions."""
-        from io import BytesIO
 
         from openpyxl import load_workbook
 
@@ -387,7 +438,6 @@ class TestBuildStatementReport:
 
     def test_unreadable_file_reports_error(self):
         """A corrupt (non-xlsx) buffer yields an error entry, not a crash."""
-        from io import BytesIO
 
         report = build_statement_report(
             [BytesIO(b"not an excel file")], source_names=["corrupt.xlsx"]

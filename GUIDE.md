@@ -110,11 +110,15 @@ threshold — sit under **Advanced settings** in the sidebar.
    sheet per reconciliation list. Each sheet ends with a bold **TOTAL** row
    summing its amounts.
 5. Click **Download Finance Reconciliation (Excel)** for the version finance
-   asks for: every transaction on one sheet with a **Debit** column, where the
+   asks for: every transaction on one sheet with all the statement's columns (Approval Id
+   through Balance After) and a **Debit** column, where the
    **TOTAL** at the bottom is the money that actually left the float. Payments
    that failed or were reversed are shaded red with an empty Debit cell — they
    stay on the sheet as the reason the total is lower than what you uploaded,
-   but they are not counted.
+   but they are not counted. Commission Amount, Credit and Balance After are
+   filled only if your OpenFloat export includes them. The file is saved under
+   the case reference from the Remark column, or the case numbers joined
+   together (`C#37154_C#37181`) when the statement covers several cases.
 
 ## What This App Doesn't Do
 
