@@ -8,6 +8,11 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Clear error when this app's own report is uploaded as a statement.** A
+  Statement Report or Finance download fed back into Statement Report mode used
+  to fail with a generic "no 'Transaction Statement' sheet" message. It now
+  says the file is a report from this app and asks for the original OpenFloat
+  export.
 - **Statement Report is the project leads' copy, in the statement's own
   columns.** Its Successful and Unsuccessful sheets now carry `Approval Id`
   through `Approved/Rejected By`, then `Amount`, then `Reference Id` (so a

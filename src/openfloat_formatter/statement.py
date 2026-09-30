@@ -56,6 +56,11 @@ from .normalizer import (
 
 STATEMENT_SHEET_NAME = "Transaction Statement"
 
+# Sheet names of this app's own downloads (writer.write_statement_workbook and
+# write_finance_workbook). Their file names also contain "Transaction Statement",
+# so they get uploaded back by mistake. Recognising them gives a clear error.
+_OWN_REPORT_SHEETS = ({"Successful", "Unsuccessful"}, {"Finance Reconciliation"})
+
 # Columns every statement must have (any position). 'Approval Id',
 # 'Transaction Type', 'Initiated By', 'Approved/Rejected By' and
 # 'Reference Id' are picked up by name when present but not required.
@@ -280,6 +285,17 @@ def parse_statement_file(
     workbook = load_workbook(source, read_only=True, data_only=True)
     try:
         if STATEMENT_SHEET_NAME not in workbook.sheetnames:
+            if any(sheets <= set(workbook.sheetnames) for sheets in _OWN_REPORT_SHEETS):
+                return (
+                    [],
+                    None,
+                    warnings,
+                    [
+                        f"'{file_name}' is a report downloaded from this app, not an "
+                        "OpenFloat export. Upload the original Transaction Statement "
+                        "downloaded from OpenFloat instead."
+                    ],
+                )
             return (
                 [],
                 None,

@@ -21,6 +21,7 @@ from openfloat_formatter.statement import (
     rollup_by_case,
     summarize_transactions,
 )
+from openfloat_formatter.writer import write_finance_workbook, write_statement_workbook
 
 
 class TestParseStatementDate:
@@ -241,6 +242,20 @@ class TestParseStatementFile:
         assert transactions == []
         assert len(errors) == 1
         assert "Transaction Statement" in errors[0]
+
+    @pytest.mark.parametrize("write", [write_statement_workbook, write_finance_workbook])
+    def test_own_download_uploaded_back_says_so(self, make_statement_workbook, write):
+        """This app's own report, uploaded by mistake, gets a plain explanation."""
+        report = build_statement_report([make_statement_workbook(rows=[statement_row()])])
+        transactions, _footer_total, _warnings, errors = parse_statement_file(
+            write(report), source_name="august_report.xlsx"
+        )
+        assert transactions == []
+        assert errors == [
+            "'august_report.xlsx' is a report downloaded from this app, not an OpenFloat "
+            "export. Upload the original Transaction Statement downloaded from OpenFloat "
+            "instead."
+        ]
 
     def test_bad_date_soft_warning_date_raw_kept(self, make_statement_workbook):
         """An unparseable date warns and keeps the raw cell text."""
