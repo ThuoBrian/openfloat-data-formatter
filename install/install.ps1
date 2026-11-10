@@ -53,18 +53,6 @@ function Get-InstallRoot {
     }
 }
 
-function New-AppShortcut {
-    # A shortcut that starts the app, so later runs don't mean hunting for
-    # run.bat among the code files. Re-running the installer overwrites it.
-    param([string]$Folder, [string]$AppDir)
-    $shell = New-Object -ComObject WScript.Shell
-    $link  = $shell.CreateShortcut((Join-Path $Folder 'OpenFloat Data Formatter.lnk'))
-    $link.TargetPath       = Join-Path $AppDir 'run.bat'
-    $link.WorkingDirectory = $AppDir
-    $link.Description      = 'Start OpenFloat Data Formatter'
-    $link.Save()
-}
-
 Write-Host ""
 Write-Host "OpenFloat Data Formatter - installer" @green
 
@@ -110,22 +98,12 @@ if ($savedData) {
 Remove-Item $tmpZip -Force -ErrorAction SilentlyContinue
 Remove-Item $tmpExtract -Recurse -Force -ErrorAction SilentlyContinue
 
-# 6. Desktop and Start menu shortcuts. 'Programs' is the user's own Start menu,
-#    so no admin rights are needed. A failure here must not fail the install:
-#    the app is in place and run.bat still starts it.
-$shortcutsMade = $true
-foreach ($folder in [Environment]::GetFolderPath('Desktop'), [Environment]::GetFolderPath('Programs')) {
-    try {
-        New-AppShortcut -Folder $folder -AppDir $Target
-    }
-    catch {
-        $shortcutsMade = $false
-        Write-Host "Couldn't create a shortcut in $folder - start the app with run.bat in $Target" @cyan
-    }
-}
-if ($shortcutsMade) {
-    Write-Host "Added an 'OpenFloat Data Formatter' shortcut to your Desktop and Start menu." @green
-}
+# 6. Desktop and Start menu shortcuts, with the app's icon. The script ships in
+#    the download, so a shortcut can also be (re)made later without
+#    reinstalling. Bypass because running a script file - unlike this one,
+#    piped through iex - is subject to the execution policy. A failure here
+#    must not fail the install: the app is in place and run.bat still starts it.
+powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Target 'install\create-shortcut.ps1') -AppDir $Target
 
 Write-Host ""
 Write-Host "Done. Starting the app (first run sets up the environment)..." @green

@@ -32,9 +32,11 @@ anywhere remote.
 
 1. **First time**: happens automatically at the end of installing (above).
    **Later**: double-click the **OpenFloat Data Formatter** shortcut on your
-   Desktop, or find it in the Start menu. (If the shortcut is missing, go to
-   the folder you installed into and double-click **`run.bat`** — it does the
-   same thing.)
+   Desktop (a blue icon with a spreadsheet and an arrow), or find it in the
+   Start menu. If the shortcut is missing, or still has the plain grey icon
+   from an older version, re-run the install command from **Installing**
+   above — it puts the shortcut back. In the meantime, double-click
+   **`run.bat`** in the folder you installed into; it does the same thing.
 2. A black command window will pop up — this is normal. **Don't close it**
    while you're using the app; closing it stops the app.
 3. **First run only**: setup takes a few minutes (installing Python and
@@ -43,8 +45,10 @@ anywhere remote.
    "OpenFloat Data Formatter". If it doesn't open on its own, go to
    `http://localhost:8501` in your browser.
 5. Every run after the first takes just a few seconds.
-6. **To stop the app**, close the black command window (closing just the
-   browser tab leaves it running in the background).
+6. **To stop the app**, click **Close the app** at the bottom of the sidebar
+   and confirm. The black window closes by itself; then close the browser
+   tab. (Closing the black window directly also works. Closing just the
+   browser tab leaves the app running in the background.)
 
 ## Getting Updates
 
@@ -54,7 +58,9 @@ anything first.
 
 ## Using the App
 
-The app has two modes — switch between them in the sidebar on the left.
+At the top of the page, choose what you want to do: **Prepare an OpenFloat
+upload** or **Check payment results**. To clear everything and begin again,
+click **Start over with new files** in the sidebar on the left.
 
 > **Tip — filling in data by hand?** In your install folder there's a file
 > `docs/processmaker-input-template.xlsx`. It has the correct headers, valid
@@ -62,7 +68,7 @@ The app has two modes — switch between them in the sidebar on the left.
 > sheet explaining the format rules. Fill it in and export/upload it as your
 > Process Maker file.
 
-### Transform mode (prepare an upload)
+### Prepare an OpenFloat upload
 
 The page walks through four numbered steps.
 
@@ -88,19 +94,20 @@ The page walks through four numbered steps.
    and a "Why it was left out" column — and send it to whoever compiled the
    file. The **Row** numbers match the row numbers in your own spreadsheet.
 4. **Step 4 — Download your upload file.** The button says how many rows are
-   in it, so a partial file is never mistaken for a complete one.
+   in it, and a yellow note beside it says how many were left out, so a
+   partial file is never mistaken for a complete one.
 
 Settings you rarely need — the country prefix and the high-amount warning
 threshold — sit under **Advanced settings** in the sidebar.
 
-### Statement Report mode (check what actually happened)
+### Check payment results (after a disbursement)
 
 1. After OpenFloat finishes a disbursement, download its **Transaction
    Statement** export (see FAQ below).
 2. In the app, upload one or more statement files. You'll see the totals —
-   how many transactions succeeded, how many didn't, and how much money
-   actually went out — plus a list of any unsuccessful transactions
-   (e.g. "Reversed") that need follow-up.
+   how many payments succeeded, how many didn't, and how much money
+   actually went out — then the list of payments that did not go through
+   (e.g. "Reversed"), which need follow-up.
 3. Optional: also upload your original Process Maker file. The app then
    shows, per phone number, who was paid, who was on the statement but
    unpaid, and who never appeared on the statement at all.
@@ -143,7 +150,7 @@ No. The app processes your file locally; nothing is uploaded to the internet
 **What is a "Transaction Statement"?**
 The report file OpenFloat produces after it processes your upload. It lists
 every transaction it attempted — who got the airtime, how much, and whether
-it succeeded. Statement Report mode reads these files.
+it succeeded. **Check payment results** reads these files.
 
 **Where does the downloaded file go?**
 Wherever your browser normally saves downloads (usually your Downloads
