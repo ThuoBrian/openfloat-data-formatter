@@ -20,7 +20,7 @@ Confirm your setup works: `just test` should pass.
 1. Branch from `main`: `git checkout -b <short-description>`.
 2. Make the change. If it touches phone normalization, network mapping,
    amount validation, `case_remark` parsing, or statement
-   reconciliation, read [AGENTS.md](AGENTS.md) first — those rules are
+   reconciliation, read the module and its tests first — those rules are
    deliberate and have edge cases.
 3. Add or update tests for the change.
 4. Run `just check` — lint, type-check and tests must all pass; CI runs the same ones.

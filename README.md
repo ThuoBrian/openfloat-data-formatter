@@ -65,7 +65,7 @@ the network, and an Instructions sheet with the format rules.
 - Phone numbers are assumed to be Kenyan: 9 local digits plus the `254` country
   code. Numbers in other formats are rejected.
 - Networks are matched against a fixed list, and the match is case-sensitive
-  (see [AGENTS.md](AGENTS.md#key-domain-rules)). A network name the app doesn't
+  (the list is in `src/openfloat_formatter/mapper.py`). A network name the app doesn't
   recognise, or one spelled with different capitals, is rejected rather than
   guessed at.
 - Duplicate phone numbers are flagged, not merged. You decide which row is right.
@@ -96,11 +96,10 @@ just test     # test suite; extra args pass through (just test -k test_phone)
 just check    # lint, type-check and tests, the same checks CI runs
 ```
 
-If you don't have just, the plain `uv run ...` commands are in
-[AGENTS.md](AGENTS.md#build--run-commands).
+If you don't have just, each recipe in the `justfile` is a thin `uv run ...`
+wrapper you can run directly.
 
 The pipeline is `Process Maker CSV → validate → normalize → map → OpenFloat-ready .xlsx`.
-[AGENTS.md](AGENTS.md) has the full domain rules and architecture, and
 [docs/GOTCHA.md](docs/GOTCHA.md) lists the things that caught us out during
 development.
 

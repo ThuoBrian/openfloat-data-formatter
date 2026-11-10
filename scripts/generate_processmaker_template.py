@@ -4,7 +4,7 @@ Produces `docs/processmaker-input-template.xlsx`: a ready-to-fill export
 template for staff, with the exact columns the formatter expects, a couple
 of valid example rows, in-cell dropdown validation for the `network` column,
 and an `Instructions` sheet documenting the
-per-column format rules (see AGENTS.md "Key Domain Rules").
+per-column format rules.
 
 Column order is imported from `openfloat_formatter.config` so this template can
 never drift from the schema the pipeline actually validates against.
