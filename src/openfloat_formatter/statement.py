@@ -38,7 +38,7 @@ from typing import Any
 import pandas as pd
 from openpyxl import load_workbook
 
-from .config import Settings, settings
+from .config import Settings
 from .models import (
     CaseRollup,
     ReconciliationEntry,
@@ -476,7 +476,7 @@ def reconcile(
     statement phone with >1 Successful rows → multiply_paid_phones.
     """
     if config is None:
-        config = settings
+        config = Settings()
     prefix = config.default_country_prefix
     id_column = find_account_name_column(
         input_df.columns, config.account_name_column, frame=input_df
@@ -622,7 +622,7 @@ def build_statement_report(
         config: Optional settings override. Uses global defaults if None.
     """
     if config is None:
-        config = settings
+        config = Settings()
     if source_names is None:
         source_names = [
             Path(source).name if isinstance(source, (str, Path)) else f"statement {index + 1}"

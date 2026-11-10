@@ -13,7 +13,7 @@ from collections import defaultdict
 
 import pandas as pd
 
-from .config import Settings, settings
+from .config import Settings
 from .mapper import map_network
 from .models import FilteredCounts, IssueSeverity, ValidationIssue, ValidationReport
 from .normalizer import (
@@ -91,7 +91,7 @@ def validate(
         A ValidationReport with row counts, filtered counts, errors, and warnings.
     """
     if config is None:
-        config = settings
+        config = Settings()
 
     total_rows = len(df)
     errors: list[ValidationIssue] = []

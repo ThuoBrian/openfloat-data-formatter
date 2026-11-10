@@ -232,5 +232,8 @@ class Settings(BaseSettings):
     network_map: dict[str, str] = DEFAULT_NETWORK_MAP
 
 
-# Singleton settings instance
-settings = Settings()
+# No module-level `Settings()` instance on purpose: importing this module must
+# not read .env, or a bad value there crashes every importer — the Streamlit
+# app included — with a raw traceback before it can explain the problem.
+# Build one where it is used: main.py does at startup, the app per run
+# (ui/app.py::_load_defaults), and the pipeline when no config is passed.
