@@ -11,7 +11,12 @@ Provides a simple web interface for non-technical staff to:
 
 from __future__ import annotations
 
+import html
+import re
+import signal
+import threading
 from collections.abc import Sequence
+from importlib.metadata import PackageNotFoundError, version
 from io import BytesIO
 from pathlib import Path
 from typing import Any
@@ -51,29 +56,61 @@ from openfloat_formatter.writer import (
 def main():
     st.set_page_config(
         page_title="OpenFloat Data Formatter",
-        page_icon="🔄",
+        page_icon=str(_ICON_PATH),
         layout="wide",
     )
+    st.html(_PAGE_CSS)
+    _render_header()
 
-    st.title("🔄 OpenFloat Data Formatter")
-    st.markdown(
-        "Transform Process Maker airtime exports into OpenFloat-ready uploads."
-    )
+    if st.session_state.get("closing"):
+        st.success(
+            "**The app has closed.** You can close this browser tab now. "
+            "To use it again, open the **OpenFloat Data Formatter** shortcut."
+        )
+        st.caption(
+            "If a \"Connection error\" message appears, that is expected — the "
+            "app is no longer running."
+        )
+        # Delayed so this message reaches the browser before the server goes.
+        threading.Timer(1.0, _shut_down).start()
+        st.stop()
 
-    # --- Sidebar: mode selection + shared configuration ---
-    mode = st.sidebar.radio(
-        "Mode",
-        ["Transform", "Statement Report"],
+    # The mode choice is the first decision anyone makes, so it sits on the
+    # page itself — a sidebar radio is easy to miss, and is hidden entirely
+    # when the sidebar is collapsed or the window is narrow.
+    mode = st.radio(
+        "What do you want to do?",
+        [MODE_TRANSFORM, MODE_STATEMENT],
         horizontal=True,
-        help="Transform builds OpenFloat uploads; Statement Report analyses "
-        "the statements OpenFloat produced after a disbursement",
+        captions=[
+            "Turn a Process Maker export into a file OpenFloat accepts.",
+            "After a disbursement: see who was paid and who wasn't.",
+        ],
     )
+
+    with st.sidebar:
+        st.markdown("#### How it works")
+        st.markdown(
+            "1. **Prepare an upload** from your Process Maker export.\n"
+            "2. Upload that file to OpenFloat yourself.\n"
+            "3. When it finishes, download OpenFloat's **Transaction "
+            "Statement** and come back to **Check payment results**."
+        )
+        # Uploaders keep their file across reruns; changing their key is the
+        # only way to empty them, so "start over" bumps a counter in the key.
+        if st.button(
+            "Start over with new files", icon=":material/restart_alt:", width="stretch"
+        ):
+            st.session_state["upload_round"] = st.session_state.get("upload_round", 0) + 1
+            st.rerun()
+        st.divider()
+
     # Free text that silently corrupts every phone number in a batch if it is
     # mistyped, on a tool only used for Kenyan numbers — it belongs out of the
     # way, not beside the upload button.
     # One expander for both modes; the threshold only matters to Transform, so
     # it only shows there.
-    with st.sidebar.expander("Advanced settings"):
+    with st.sidebar.expander("Advanced settings", icon=":material/tune:"):
         country_prefix = st.text_input(
             "Country prefix",
             value="254",
@@ -86,9 +123,21 @@ def main():
                 value=10_000,
                 help="Warn when airtime amount exceeds this value",
             )
-            if mode == "Transform"
+            if mode == MODE_TRANSFORM
             else 0
         )
+
+    # Last in the sidebar and behind a confirmation: one stray click otherwise
+    # throws away a file the user has prepared but not yet downloaded.
+    st.sidebar.divider()
+    if st.sidebar.button(
+        "Close the app",
+        icon=":material/power_settings_new:",
+        help="Stops the tool and closes its black window.",
+        width="stretch",
+    ):
+        _confirm_close()
+    st.sidebar.caption(f"Version {_app_version()} · Runs on this computer only")
 
     # A blank or mistyped prefix would silently rewrite every phone number in
     # the batch, so nothing runs until it is a plain country code.
@@ -96,13 +145,172 @@ def main():
         st.sidebar.error("Country prefix must be 1 to 3 digits, e.g. 254.")
         st.stop()
 
-    if mode == "Transform":
+    if mode == MODE_TRANSFORM:
         render_transform_page(country_prefix, int(amount_threshold))
     else:
         render_statement_report_page(country_prefix)
 
 
+MODE_TRANSFORM = "Prepare an OpenFloat upload"
+MODE_STATEMENT = "Check payment results"
+
 AUTO_DETECT = "(auto-detect)"
+
+# Same artwork as the desktop shortcut (install/openfloat.ico); both come from
+# scripts/generate_icon.py.
+_ICON_PATH = Path(__file__).with_name("icon.png")
+
+# Page accents; the rest of the palette is the theme in .streamlit/config.toml.
+_HEADER_BG = "#1E293B"  # header band (slate 800), one step up from the page
+_HEADER_BORDER = "#334155"  # slate 700, matches the theme's borderColor
+_ACCENT = "#2563EB"  # step badges, matches the theme's primaryColor
+_HEADING = "#F1F5F9"  # step titles (slate 100)
+_MUTED = "#94A3B8"  # secondary text (slate 400), 7:1 on the page
+
+# The theme covers colours and fonts; this covers what it can't — the header
+# band, the step badges, and a readable line length on wide monitors. Selectors
+# stick to Streamlit's `data-testid` attributes and our own classes, which are
+# far more stable across releases than its generated class names.
+_PAGE_CSS = f"""
+<style>
+  [data-testid="stMainBlockContainer"] {{
+    max-width: 1240px;
+    padding-top: 2.25rem;
+  }}
+  .of-header {{
+    background: {_HEADER_BG};
+    border: 1px solid {_HEADER_BORDER};
+    border-radius: 10px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+    color: #FFFFFF;
+    padding: 1.1rem 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.5rem;
+  }}
+  .of-header h1 {{
+    color: #FFFFFF;
+    font-size: 1.5rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin: 0;
+    padding: 0;
+  }}
+  .of-header p {{
+    color: #CBD5E1;
+    font-size: 0.9rem;
+    margin: 0.2rem 0 0 0;
+  }}
+  .of-badge {{
+    border: 1px solid rgba(255, 255, 255, 0.45);
+    border-radius: 999px;
+    font-size: 0.8rem;
+    padding: 0.3rem 0.8rem;
+    white-space: nowrap;
+  }}
+  .of-step {{
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 1.75rem 0 0.25rem 0;
+  }}
+  .of-step-number {{
+    background: {_ACCENT};
+    border-radius: 50%;
+    color: #FFFFFF;
+    flex: none;
+    font-weight: 700;
+    height: 2rem;
+    line-height: 2rem;
+    text-align: center;
+    width: 2rem;
+  }}
+  .of-step-title {{
+    color: {_HEADING};
+    font-size: 1.3rem;
+    letter-spacing: -0.01em;
+    font-weight: 600;
+  }}
+  .of-step-optional {{
+    color: {_MUTED};
+    font-size: 0.85rem;
+    font-weight: 400;
+    margin-left: 0.25rem;
+  }}
+</style>
+"""
+
+
+def _app_version() -> str:
+    try:
+        return version("openfloat-data-formatter")
+    except PackageNotFoundError:  # running from a checkout that isn't installed
+        return "dev"
+
+
+def _render_header() -> None:
+    st.html(
+        '<div class="of-header"><div>'
+        "<h1>OpenFloat Data Formatter</h1>"
+        "<p>Airtime disbursement files for OpenFloat, checked before you upload "
+        "and reconciled after.</p>"
+        '</div><span class="of-badge">&#128274; Files stay on this computer</span></div>'
+    )
+
+
+def _step(number: int, title: str, *, optional: bool = False) -> None:
+    """A numbered step heading — the page's main way of saying "you are here"."""
+    suffix = '<span class="of-step-optional">(optional)</span>' if optional else ""
+    st.html(
+        f'<div class="of-step"><span class="of-step-number">{number}</span>'
+        f'<span class="of-step-title">{html.escape(title)}{suffix}</span></div>'
+    )
+
+
+def _shut_down() -> None:
+    """Stop the Streamlit server the way Ctrl+C in its window would.
+
+    Streamlit handles SIGTERM itself — it stops the server and the process
+    exits with code 0 — so `run.bat` reaches its end without hitting the
+    "exited with an error" pause, and the black window closes on its own.
+    `os._exit` or killing the process would skip that clean shutdown and,
+    on Windows, exit non-zero, leaving the window paused on an error.
+    """
+    signal.raise_signal(signal.SIGTERM)
+
+
+@st.dialog("Close the app?")
+def _confirm_close() -> None:
+    st.write(
+        "This stops the OpenFloat Data Formatter and closes its black window. "
+        "Anything you haven't downloaded yet will be lost."
+    )
+    close_column, cancel_column = st.columns(2)
+    if close_column.button("Close the app", type="primary"):
+        st.session_state["closing"] = True
+        st.rerun()
+    if cancel_column.button("Cancel"):
+        st.rerun()
+
+
+def _upload_key(name: str) -> str:
+    """Widget key for an uploader, renewed by the sidebar's "start over" button."""
+    return f"{name}_{st.session_state.get('upload_round', 0)}"
+
+
+def _show_error(message: str, exc: Exception) -> None:
+    """A plain-English error, with the technical text tucked away for support.
+
+    A raw exception ("Worksheet named 'Accounts' not found", a KeyError) means
+    nothing to the staff using this, but it is exactly what whoever supports
+    them needs — so it is kept, just not in the headline.
+    """
+    st.error(message)
+    with st.expander("Technical details (include these if you ask for help)"):
+        st.code(f"{type(exc).__name__}: {exc}", language=None)
 
 XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
@@ -129,6 +337,9 @@ _FIELD_LABELS = {
 }
 
 
+_ROW_PREFIX = re.compile(r"^Row \d+:\s*")
+
+
 def _issue_table(issues: Sequence[ValidationIssue]) -> pd.DataFrame:
     """Validation issues as a table, with our field names put into theirs."""
     return pd.DataFrame(
@@ -136,7 +347,9 @@ def _issue_table(issues: Sequence[ValidationIssue]) -> pd.DataFrame:
             {
                 "Row": issue.row_number,
                 "Column": _FIELD_LABELS.get(issue.field, issue.field),
-                "Problem": issue.message,
+                # Validator messages lead with "Row 5: …", which the Row column
+                # already says.
+                "Problem": _ROW_PREFIX.sub("", issue.message),
             }
             for issue in issues
         ]
@@ -300,7 +513,7 @@ def _select_project_code(df: pd.DataFrame) -> str | None:
     if not short_form_rows and column is None:
         return None  # nothing to complete and nowhere to put it
 
-    st.header("Project Code")
+    st.markdown("**Project code**")
     typed = st.text_input(
         "Project code for the case reference",
         value="",
@@ -330,21 +543,34 @@ def _select_project_code(df: pd.DataFrame) -> str | None:
 def render_transform_page(country_prefix: str, amount_threshold: int):
     """Upload → check columns → fix problems → download, as four numbered steps."""
     # --- Step 1: upload ---
-    st.header("Step 1 — Upload your file")
+    _step(1, "Upload your file")
     uploaded_file = st.file_uploader(
-        "Choose a CSV or Excel file",
+        "Your Process Maker airtime export (CSV or Excel)",
         type=["csv", "xlsx", "xls", "xlsm"],
-        help="Upload a Process Maker airtime disbursement export",
+        help="Drag the file here, or click Browse files to pick it.",
+        key=_upload_key("transform_input"),
     )
 
     if uploaded_file is None:
-        st.info("Upload a file to get started. It stays on this computer.")
+        st.info(
+            "Upload a file to get started. Filling one in by hand? Use "
+            "`docs/processmaker-input-template.xlsx` in the app's folder — it "
+            "has the right columns already."
+        )
         return
 
     try:
         raw_df = read_input_file(uploaded_file, uploaded_file.name)
     except Exception as e:
-        st.error(f"Error reading file: {e}")
+        _show_error(
+            "We couldn't open this file. Check it is the Process Maker export "
+            "(CSV or Excel), that it isn't open in Excel right now, and try again.",
+            e,
+        )
+        return
+
+    if raw_df.empty:
+        st.warning("This file has column headers but no rows. Is it the right file?")
         return
 
     # --- Step 2: columns ---
@@ -352,12 +578,15 @@ def render_transform_page(country_prefix: str, amount_threshold: int):
     # names before anything reads the frame. The picker pre-selects whatever
     # detection found and lets the user override it, which is what makes a
     # header nobody has seen before workable without a code change.
-    st.header("Step 2 — Check the columns")
+    _step(2, "Check the columns")
     column_choice, id_column = _select_columns(raw_df)
     df = canonicalize_input_columns(raw_df, column_choice)
 
-    st.markdown(f"**{len(df)} rows** × **{len(df.columns)} columns**")
-    st.dataframe(df.head(10))
+    st.caption(
+        f"Your file has **{len(df)} rows**. The first {min(len(df), 10)} are shown "
+        "below so you can check it is the right file."
+    )
+    st.dataframe(df.head(10), hide_index=True)
 
     project_code = _select_project_code(df)
 
@@ -378,23 +607,36 @@ def render_transform_page(country_prefix: str, amount_threshold: int):
             df, config.model_dump_json()
         )
     except Exception as e:
-        st.error(f"Transformation error: {e}")
+        _show_error(
+            "Something went wrong while building the upload file. Nothing was "
+            "downloaded. Try again, and if it keeps happening, ask for help.",
+            e,
+        )
         return
 
     # --- Step 3: problems ---
-    st.header("Step 3 — Fix any problems")
+    _step(3, "Fix any problems")
 
+    left_out = report.total_rows - report.valid_rows
     col1, col2, col3 = st.columns(3)
-    col1.metric("Rows in your file", report.total_rows)
-    col2.metric("Ready for OpenFloat", report.valid_rows)
-    col3.metric("Left out", report.total_rows - report.valid_rows)
+    col1.metric("Rows in your file", report.total_rows, border=True)
+    col2.metric("Ready for OpenFloat", report.valid_rows, border=True)
+    col3.metric("Left out", left_out, border=True)
 
     if report.errors:
-        with st.expander(f"❌ Rows that will be left out ({len(report.errors)})",
-                         expanded=True):
-            st.dataframe(_issue_table(report.errors))
+        with st.expander(
+            f"Rows that will be left out ({len(report.errors)})",
+            expanded=True,
+            icon=":material/block:",
+        ):
+            st.caption(
+                "Row numbers match the rows in your own spreadsheet. Fix these at "
+                "the source, then upload the corrected file here again."
+            )
+            st.dataframe(_issue_table(report.errors), hide_index=True)
             st.download_button(
-                label="📤 Download the rows that need fixing",
+                label="Download the rows that need fixing",
+                icon=":material/download:",
                 data=write_rejected_rows_workbook(raw_df, report).getvalue(),
                 file_name=Path(uploaded_file.name).stem + "_rows_to_fix.xlsx",
                 mime=XLSX_MIME,
@@ -406,21 +648,30 @@ def render_transform_page(country_prefix: str, amount_threshold: int):
     if counts.invalid_phone or counts.invalid_amount or counts.unmapped_network:
         with st.expander("Why rows were left out", expanded=False):
             if counts.invalid_phone:
-                st.write(f"📞 Invalid phone: **{counts.invalid_phone}**")
+                st.write(f"Invalid phone number: **{counts.invalid_phone}**")
             if counts.invalid_amount:
-                st.write(f"💰 Invalid amount: **{counts.invalid_amount}**")
+                st.write(f"Invalid amount: **{counts.invalid_amount}**")
             if counts.unmapped_network:
-                st.write(f"📡 Unrecognised network: **{counts.unmapped_network}**")
+                st.write(f"Unrecognised network: **{counts.unmapped_network}**")
 
     if report.warnings:
-        with st.expander(f"⚠️ Worth checking ({len(report.warnings)})", expanded=False):
-            st.dataframe(_issue_table(report.warnings))
+        with st.expander(
+            f"Worth checking ({len(report.warnings)})",
+            expanded=False,
+            icon=":material/warning:",
+        ):
+            st.caption(
+                "These rows **are** in the upload file. Nothing is wrong for "
+                "certain, but take a look (e.g. a very large amount, or the same "
+                "phone number twice)."
+            )
+            st.dataframe(_issue_table(report.warnings), hide_index=True)
 
     if not report.errors and not report.warnings:
-        st.success("✅ Every row in this file can be uploaded.")
+        st.success("Every row in this file can be uploaded.", icon=":material/check_circle:")
 
     # --- Step 4: download ---
-    st.header("Step 4 — Download your upload file")
+    _step(4, "Download your upload file")
 
     if output_bytes is None:
         st.error(
@@ -429,15 +680,26 @@ def render_transform_page(country_prefix: str, amount_threshold: int):
         )
         return
 
+    # The easiest mistake here is uploading a partial file believing it is
+    # complete, so say so right beside the button, not only up in Step 3.
+    if left_out:
+        st.warning(
+            f"This file is **missing {left_out} row(s)** that had problems "
+            "(see Step 3). Those people will not be paid unless their rows are "
+            "fixed and sent separately."
+        )
     st.download_button(
-        label=f"📥 Download {output_row_count} rows for OpenFloat",
+        label=f"Download {output_row_count} rows for OpenFloat",
+        icon=":material/download:",
         data=output_bytes,
         file_name=Path(uploaded_file.name).stem + "_openfloat.xlsx",
         mime=XLSX_MIME,
+        type="primary",
     )
     st.caption(
         "Next: upload this file to OpenFloat. When the disbursement finishes, "
-        "come back and use **Statement Report** mode to check what went through."
+        "download its Transaction Statement and come back to **Check payment "
+        "results** to see what went through."
     )
 
 
@@ -459,7 +721,10 @@ def _download_report(report: StatementReport, statement_files: Sequence[Any]) ->
         if report.reconciliation is not None:
             sheets += ", plus the four reconciliation sheets"
         st.download_button(
-            label="📥 Download Statement Report (Excel)",
+            label="Statement Report (Excel)",
+            icon=":material/download:",
+            type="primary",
+            width="stretch",
             data=write_statement_workbook(report).getvalue(),
             file_name=f"{stem}_report.xlsx" if stem else _download_name(
                 statement_files, "_report.xlsx", "statement_report.xlsx"
@@ -470,7 +735,10 @@ def _download_report(report: StatementReport, statement_files: Sequence[Any]) ->
 
     with finance_column:
         st.download_button(
-            label="💰 Download Finance Reconciliation (Excel)",
+            label="Finance Reconciliation (Excel)",
+            icon=":material/download:",
+            type="primary",
+            width="stretch",
             data=write_finance_workbook(report).getvalue(),
             file_name=f"{stem}.xlsx" if stem else _download_name(
                 statement_files, "_finance.xlsx", "finance_reconciliation.xlsx"
@@ -501,38 +769,40 @@ def render_statement_report_page(country_prefix: str):
 
     def _entry_display_columns(entry, bucket):
         return {
-            "Bucket": bucket,
+            "Result": bucket,
             "Phone": entry.phone,
-            "Unique ID": entry.unique_id,
-            "Input Amount": entry.input_amount,
-            "Input Rows": ", ".join(str(n) for n in entry.input_row_numbers),
+            "ID": entry.unique_id,
+            "Amount in your file": entry.input_amount,
+            "Rows in your file": ", ".join(str(n) for n in entry.input_row_numbers),
             "Successful": entry.successful_count,
             "Unsuccessful": entry.unsuccessful_count,
-            "Paid Total": entry.successful_total,
+            "Amount paid": entry.successful_total,
             "Notes": "; ".join(entry.notes),
         }
 
-    st.header("📊 OpenFloat Statement Report")
-    st.markdown(
-        "Report on successful and unsuccessful disbursements from OpenFloat "
-        "Transaction Statement exports. Upload the original Process Maker "
-        "input too to find beneficiaries who were never paid."
-    )
-
+    _step(1, "Upload OpenFloat's statement")
     statement_files = st.file_uploader(
-        "Statement exports",
+        "Transaction Statement file(s) downloaded from OpenFloat",
         type=["xlsx", "xls", "xlsm"],
         accept_multiple_files=True,
-        help="One or more 'Transaction Statement' files downloaded from OpenFloat",
+        help="You can select several at once if the disbursement was split.",
+        key=_upload_key("statements"),
     )
+
+    _step(2, "Add your original file", optional=True)
     pm_file = st.file_uploader(
-        "Process Maker input (optional — enables reconciliation)",
+        "The Process Maker export you prepared the upload from",
         type=["csv", "xlsx", "xls", "xlsm"],
-        help="The original Process Maker export that was uploaded to OpenFloat",
+        help="Add it to find people who were on your list but never paid.",
+        key=_upload_key("statement_input"),
+    )
+    st.caption(
+        "With this, the report also lists people who were on your list but "
+        "never appeared on the statement."
     )
 
     if not statement_files:
-        st.info("Upload one or more statement exports to get started.")
+        st.info("Upload at least one Transaction Statement to see the results.")
         return
 
     input_df = None
@@ -540,7 +810,12 @@ def render_statement_report_page(country_prefix: str):
         try:
             input_df = canonicalize_input_columns(read_input_file(pm_file, pm_file.name))
         except Exception as e:
-            st.error(f"Error reading Process Maker input: {e}")
+            _show_error(
+                "We couldn't open your Process Maker file. Check it is a CSV or "
+                "Excel file and isn't open in Excel, or remove it to see the "
+                "statement results on their own.",
+                e,
+            )
             return
 
     config = Settings(
@@ -557,39 +832,74 @@ def render_statement_report_page(country_prefix: str):
                 config=config,
             )
         except Exception as e:
-            st.error(f"Statement report error: {e}")
+            _show_error(
+                "Something went wrong while reading the statement(s). Check they "
+                "are the Transaction Statement files from OpenFloat and try again.",
+                e,
+            )
             return
 
     # --- Structural errors: reported, but the rest of the report still shows ---
     if report.errors:
-        st.error("Some statements could not be parsed:\n\n" + "\n\n".join(report.errors))
+        st.error(
+            "Some files could not be read, so they are **not** included in the "
+            "results below:\n\n" + "\n\n".join(f"- {error}" for error in report.errors)
+        )
 
     if not report.transactions:
-        st.warning("No transactions were found in any statement.")
+        st.warning(
+            "No transactions were found. Check you uploaded OpenFloat's "
+            "Transaction Statement, not the upload file or one of this app's reports."
+        )
         return
 
     # --- Summary metrics ---
+    _step(3, "Results")
     combined = report.combined
-    col1, col2, col3, col4, col5 = st.columns(5)
-    col1.metric("Total Transactions", combined.total_rows)
-    col2.metric("✅ Successful", combined.successful_count)
-    col3.metric("❌ Unsuccessful", combined.unsuccessful_count)
-    col4.metric("Success Rate", f"{combined.success_rate:.1%}")
-    col5.metric("Total Disbursed (KES)", f"{combined.total_disbursed:,.0f}")
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Transactions", combined.total_rows, border=True)
+    col2.metric("Successful", combined.successful_count, border=True)
+    col3.metric("Unsuccessful", combined.unsuccessful_count, border=True)
+    col4.metric("Paid out (KES)", f"{combined.total_disbursed:,.0f}", border=True)
     if combined.unsuccessful_count > 0:
         st.warning(
-            f"**{combined.unsuccessful_count}** transaction(s) were NOT successful "
-            "and may need follow-up or re-disbursement — see the unsuccessful list below."
+            f"**{combined.unsuccessful_count}** payment(s) did NOT go through. "
+            "These people may need to be paid again — they are listed below."
+        )
+
+    # --- Unsuccessful transactions (the follow-up list) ---
+    # First, because it is the one thing on this page someone has to act on.
+    if report.unsuccessful_transactions:
+        with st.expander(
+            f"Payments that did not go through ({len(report.unsuccessful_transactions)})",
+            expanded=True,
+            icon=":material/error:",
+        ):
+            st.dataframe(
+                pd.DataFrame(
+                    [_txn_display_columns(txn) for txn in report.unsuccessful_transactions]
+                ),
+                hide_index=True,
+            )
+    else:
+        st.success(
+            "Every payment in every statement went through.", icon=":material/check_circle:"
         )
 
     # --- Download ---
-    # Placed before the expanders so the follow-up list is one click away rather
-    # than at the bottom of the whole report.
+    _step(4, "Download the reports")
     _download_report(report, statement_files)
 
+    st.markdown("##### More detail")
+
     # --- Per-file summaries ---
-    if len(report.file_summaries) > 1 or report.file_summaries:
-        with st.expander("📁 File Summaries", expanded=True):
+    if report.file_summaries:
+        # Worth opening by default only when there are several files to compare.
+        with st.expander(
+            "Each file",
+            expanded=len(report.file_summaries) > 1,
+            icon=":material/description:",
+        ):
             summary_df = pd.DataFrame(
                 [
                     {
@@ -597,30 +907,33 @@ def render_statement_report_page(country_prefix: str):
                         "Rows": s.total_rows,
                         "Successful": s.successful_count,
                         "Unsuccessful": s.unsuccessful_count,
-                        "Disbursed (KES)": f"{s.total_disbursed:,.0f}",
-                        "Footer Total": (
+                        "Paid out (KES)": f"{s.total_disbursed:,.0f}",
+                        "OpenFloat's own total": (
                             f"{s.footer_total:,.0f}" if s.footer_total is not None else "—"
                         ),
-                        "Footer Matches": (
+                        "Totals agree": (
                             "—" if s.footer_matches is None
-                            else ("✅ Yes" if s.footer_matches else "❌ No")
+                            else ("Yes" if s.footer_matches else "No")
                         ),
-                        "Success Rate": f"{s.success_rate:.1%}",
                     }
                     for s in report.file_summaries
                 ]
             )
-            st.dataframe(summary_df)
-            for s in report.file_summaries:
-                if s.footer_matches is False:
-                    st.warning(
-                        f"**{s.file_name}**: the footer total ({s.footer_total:,.0f}) does "
-                        f"not match the computed successful total ({s.total_disbursed:,.0f})."
-                    )
+            st.dataframe(summary_df, hide_index=True)
+        # Outside the expander: a total that disagrees must not hide in a
+        # collapsed panel.
+        for s in report.file_summaries:
+            if s.footer_matches is False:
+                st.warning(
+                    f"**{s.file_name}**: OpenFloat's own total at the bottom of the "
+                    f"file ({s.footer_total:,.0f}) does not match the successful "
+                    f"payments we counted ({s.total_disbursed:,.0f}). Check the file "
+                    "before relying on these figures."
+                )
 
     # --- Status breakdown ---
     if len(combined.counts_by_status) > 1 or combined.unsuccessful_count > 0:
-        with st.expander("Status Breakdown", expanded=False):
+        with st.expander("Count by status", expanded=False):
             status_df = pd.DataFrame(
                 [
                     {"Status": status, "Count": count}
@@ -629,24 +942,10 @@ def render_statement_report_page(country_prefix: str):
                     )
                 ]
             )
-            st.dataframe(status_df)
-
-    # --- Unsuccessful transactions (the follow-up list) ---
-    if report.unsuccessful_transactions:
-        with st.expander(
-            f"❌ Unsuccessful Transactions ({len(report.unsuccessful_transactions)})",
-            expanded=True,
-        ):
-            st.dataframe(
-                pd.DataFrame(
-                    [_txn_display_columns(txn) for txn in report.unsuccessful_transactions]
-                ),
-            )
-    else:
-        st.success("✅ Every transaction in every statement was successful.")
+            st.dataframe(status_df, hide_index=True)
 
     # --- Per-case rollups ---
-    with st.expander("🗂️ Per-Case Summary", expanded=False):
+    with st.expander("Totals per case", expanded=False, icon=":material/folder:"):
         if report.case_rollups:
             rollup_df = pd.DataFrame(
                 [
@@ -654,13 +953,13 @@ def render_statement_report_page(country_prefix: str):
                         "Case #": r.case_number,
                         "Project": r.project_code or "—",
                         "Activity": r.activity_code or "—",
-                        "Remark Amount": (
+                        "Amount in reference": (
                             f"{r.remark_amount:,.0f}" if r.remark_amount is not None else "—"
                         ),
                         "Rows": r.total_rows,
                         "Successful": r.successful_count,
                         "Unsuccessful": r.unsuccessful_count,
-                        "Disbursed": f"{r.disbursed_total:,.0f}",
+                        "Paid out": f"{r.disbursed_total:,.0f}",
                         "Difference": (
                             f"{r.difference:,.0f}" if r.difference is not None else "—"
                         ),
@@ -668,35 +967,41 @@ def render_statement_report_page(country_prefix: str):
                     for r in report.case_rollups
                 ]
             )
-            st.dataframe(rollup_df)
-            for r in report.case_rollups:
-                # None (short-form remark, no amount to compare) and 0 both mean
-                # "nothing to flag".
-                if r.difference:
-                    st.warning(
-                        f"**Case #{r.case_number} ({r.project_code})**: KSH {r.difference:,.0f} "
-                        f"difference between the remark amount ({r.remark_amount:,.0f}) and "
-                        f"what was actually disbursed ({r.disbursed_total:,.0f})."
-                    )
+            st.dataframe(rollup_df, hide_index=True)
         else:
-            st.info("No parseable case remarks were found.")
+            st.info("No case references (C#...) could be read from the Remark column.")
+    # Outside the expander, like the footer check: a case that was over- or
+    # under-paid is a finding, not a detail.
+    for r in report.case_rollups:
+        # None (short-form remark, no amount to compare) and 0 both mean
+        # "nothing to flag".
+        if r.difference:
+            st.warning(
+                f"**Case #{r.case_number}**: the case reference says KES "
+                f"{r.remark_amount:,.0f}, but KES {r.disbursed_total:,.0f} was "
+                f"actually paid out (difference {r.difference:,.0f})."
+            )
 
     # --- Reconciliation (only when an input file was supplied) ---
     if report.reconciliation is not None:
-        st.subheader("🔍 Reconciliation vs Process Maker Input")
+        st.markdown("##### Compared with your Process Maker file")
         rec = report.reconciliation
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Paid", len(rec.matched_paid))
-        col2.metric("Matched but Unpaid", len(rec.matched_not_paid))
-        col3.metric("Missing from Statement", len(rec.missing_from_statement))
-        col4.metric("Not in Input", len(rec.statement_not_in_input))
-
         buckets = [
-            ("✅ Matched & Paid", rec.matched_paid),
-            ("❌ Matched but Unpaid", rec.matched_not_paid),
-            ("🚫 Missing from Statement", rec.missing_from_statement),
-            ("❓ Statement Rows Not in Input", rec.statement_not_in_input),
+            ("Paid", rec.matched_paid),
+            ("On the statement, not paid", rec.matched_not_paid),
+            ("In your file, not on the statement", rec.missing_from_statement),
+            ("On the statement, not in your file", rec.statement_not_in_input),
         ]
+        for column, (label, entries) in zip(st.columns(4), buckets, strict=True):
+            column.metric(label, len(entries), border=True)
+        if rec.missing_from_statement:
+            st.warning(
+                f"**{len(rec.missing_from_statement)}** phone number(s) in your file "
+                "are not on any statement you uploaded, so there is no record of "
+                "them being paid. Were their rows left out of the upload, or is a "
+                "statement file missing?"
+            )
+
         for label, entries in buckets:
             if entries:
                 with st.expander(f"{label} ({len(entries)})", expanded=False):
@@ -707,24 +1012,28 @@ def render_statement_report_page(country_prefix: str):
                                 for entry in entries
                             ]
                         ),
+                        hide_index=True,
                     )
 
         if rec.duplicate_input_phones:
             st.warning(
-                f"Duplicate phone(s) in the input file: {', '.join(rec.duplicate_input_phones)}"
+                "The same phone number appears more than once in your file: "
+                + ", ".join(rec.duplicate_input_phones)
             )
         if rec.multiply_paid_phones:
             st.warning(
-                f"Phone(s) paid more than once in the statements: "
-                f"{', '.join(rec.multiply_paid_phones)}"
+                "These phone numbers were paid more than once: "
+                + ", ".join(rec.multiply_paid_phones)
             )
 
     # --- Parse warnings ---
     if report.warnings:
-        with st.expander(f"⚠️ Parse Warnings ({len(report.warnings)})", expanded=False):
-            st.dataframe(
-                pd.DataFrame({"Warning": report.warnings}),
-            )
+        with st.expander(
+            f"Rows we could not fully read ({len(report.warnings)})",
+            expanded=False,
+            icon=":material/warning:",
+        ):
+            st.dataframe(pd.DataFrame({"Warning": report.warnings}), hide_index=True)
 
 
 if __name__ == "__main__":

@@ -29,15 +29,15 @@ using both modes, and common questions.
 
 ## What it does
 
-Pick one of two modes in the sidebar.
+Pick one of two modes at the top of the page.
 
-**Transform.** Upload a Process Maker export. The app checks every row (IDs,
+**Prepare an OpenFloat upload.** Upload a Process Maker export. The app checks every row (IDs,
 phone numbers, network, amounts, duplicates), tells you exactly what's wrong
 with each one, and builds the Excel file you upload to OpenFloat. Rows it can't
 use are listed with the reason, and you can download them as a sheet to send
 back to whoever compiled the export.
 
-**Statement Report.** Upload the Transaction Statement files OpenFloat gives you
+**Check payment results.** Upload the Transaction Statement files OpenFloat gives you
 after a disbursement. You get successful and unsuccessful transactions, with
 totals per case. Add your original Process Maker file as well and it also shows
 who was paid, who wasn't, and who never appeared on the statement.

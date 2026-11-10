@@ -1,0 +1,45 @@
+# Read from the working directory: the installer's shortcut and `just ui` both
+# start in the repo root, which is where this has to stay.
+
+[browser]
+# Streamlit sends anonymous usage statistics by default. GUIDE.md promises
+# staff that nothing leaves their laptop, so switch it off.
+gatherUsageStats = false
+
+[client]
+# Hide the developer menu (rerun, clear cache, deploy) that non-technical
+# staff have no use for.
+toolbarMode = "minimal"
+
+[server]
+# Same 20 MB ceiling the API enforces (main.py MAX_UPLOAD_BYTES); a statement
+# or airtime export is a few hundred KB.
+maxUploadSize = 20
+
+# Dark slate-and-blue palette, fixed rather than following the OS so every
+# laptop gets the same tool. Contrast: body text #E2E8F0 on #0F172A is 14:1;
+# white button text on primary #2563EB is 5.2:1 (#3B82F6 would be under 4.5).
+# Header and step-badge colours live in ui/app.py::_PAGE_CSS.
+#
+# Fonts are the ones Windows 11 ships (Segoe UI Variable, Cascadia Mono), so
+# nothing is fetched from the internet — the app makes no outside requests.
+# The stacks fall back to Segoe UI (Windows 10) and the system font elsewhere.
+[theme]
+base = "dark"
+primaryColor = "#2563EB"
+backgroundColor = "#0F172A"
+secondaryBackgroundColor = "#1E293B"
+textColor = "#E2E8F0"
+linkColor = "#60A5FA"
+borderColor = "#334155"
+showWidgetBorder = true
+baseRadius = "medium"
+font = "'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, sans-serif"
+headingFont = "'Segoe UI Variable Display', 'Segoe UI', system-ui, -apple-system, sans-serif"
+headingFontWeights = 600
+codeFont = "'Cascadia Mono', Consolas, ui-monospace, monospace"
+baseFontSize = 15
+dataframeHeaderBackgroundColor = "#1E293B"
+
+[theme.sidebar]
+backgroundColor = "#0B1120"
