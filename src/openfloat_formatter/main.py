@@ -23,12 +23,16 @@ import pandas as pd
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 
-from .config import Settings, settings
+from .config import Settings
 from .models import StatementReport, ValidationReport
 from .normalizer import canonicalize_input_columns
 from .statement import build_statement_report
 from .transformer import read_input_file, transform_frame
 from .validator import validate as run_validation
+
+# Read once at startup: a bad .env stops the API here, before it serves
+# anything, rather than failing on the first request.
+settings = Settings()
 
 app = FastAPI(
     title="OpenFloat Data Formatter",

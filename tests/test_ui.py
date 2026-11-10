@@ -52,3 +52,26 @@ def test_closing_shows_goodbye_and_stops_the_server(monkeypatch):
     assert any("The app has closed" in s.value for s in at.success)
     assert not at.radio  # the page itself is not drawn once closing
     assert raised.wait(timeout=5)
+
+
+def test_sidebar_starts_from_env_settings(monkeypatch):
+    # The sidebar used to hard-code 254 / 10000, so a threshold set in .env
+    # (which the installer preserves across updates) never reached the app.
+    monkeypatch.setenv("MAX_AMOUNT_THRESHOLD", "5000")
+    monkeypatch.setenv("DEFAULT_COUNTRY_PREFIX", "255")
+
+    at = AppTest.from_file(APP).run()
+
+    assert not at.exception
+    assert at.text_input[0].value == "255"
+    assert at.number_input[0].value == 5000
+
+
+def test_invalid_env_setting_shows_a_message_not_a_traceback(monkeypatch):
+    monkeypatch.setenv("DEFAULT_COUNTRY_PREFIX", "+254")
+
+    at = AppTest.from_file(APP).run()
+
+    assert not at.exception
+    assert any("settings file" in error.value for error in at.error)
+    assert not at.radio  # nothing else runs on a bad setting

@@ -10,7 +10,7 @@ from typing import Any
 
 import pandas as pd
 
-from .config import Settings, settings
+from .config import Settings
 from .mapper import map_network
 from .models import OutputRow, TransformResult
 from .normalizer import (
@@ -71,7 +71,7 @@ def transform_frame(
         and row counts.
     """
     if config is None:
-        config = settings
+        config = Settings()
 
     # Step 1: Validate
     report = validate(df, config)

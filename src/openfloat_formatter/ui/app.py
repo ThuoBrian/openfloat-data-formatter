@@ -23,12 +23,9 @@ from typing import Any
 
 import pandas as pd
 import streamlit as st
+from pydantic import ValidationError
 
-from openfloat_formatter.config import (
-    COUNTRY_PREFIX_PATTERN,
-    DEFAULT_TEMPLATE_PATH,
-    Settings,
-)
+from openfloat_formatter.config import COUNTRY_PREFIX_PATTERN, Settings
 from openfloat_formatter.models import StatementReport, ValidationIssue, ValidationReport
 from openfloat_formatter.normalizer import (
     canonicalize_input_columns,
@@ -75,6 +72,8 @@ def main():
         threading.Timer(1.0, _shut_down).start()
         st.stop()
 
+    defaults = _load_defaults()
+
     # The mode choice is the first decision anyone makes, so it sits on the
     # page itself — a sidebar radio is easy to miss, and is hidden entirely
     # when the sidebar is collapsed or the window is narrow.
@@ -113,14 +112,14 @@ def main():
     with st.sidebar.expander("Advanced settings", icon=":material/tune:"):
         country_prefix = st.text_input(
             "Country prefix",
-            value="254",
+            value=defaults.default_country_prefix,
             help="Country code prepended to phone numbers",
         ).strip()
         amount_threshold = (
             st.number_input(
                 "Max amount threshold (KES)",
                 min_value=0,
-                value=10_000,
+                value=defaults.max_amount_threshold,
                 help="Warn when airtime amount exceeds this value",
             )
             if mode == MODE_TRANSFORM
@@ -146,9 +145,29 @@ def main():
         st.stop()
 
     if mode == MODE_TRANSFORM:
-        render_transform_page(country_prefix, int(amount_threshold))
+        render_transform_page(defaults, country_prefix, int(amount_threshold))
     else:
-        render_statement_report_page(country_prefix)
+        render_statement_report_page(defaults, country_prefix)
+
+
+def _load_defaults() -> Settings:
+    """The settings every page starts from: built-in defaults plus `.env`.
+
+    The on-page controls (country prefix, threshold, project code, column
+    picks) start from these values and override them per upload; anything the
+    page has no control for — the network map, the template path — comes
+    from here unchanged. A malformed `.env` would otherwise surface as a raw
+    pydantic traceback, so it stops the page with a message instead.
+    """
+    try:
+        return Settings()
+    except ValidationError as e:
+        _show_error(
+            "The app's settings file (.env in the app folder) has a value it "
+            "can't use. Fix or delete that line, then restart the app.",
+            e,
+        )
+        st.stop()
 
 
 MODE_TRANSFORM = "Prepare an OpenFloat upload"
@@ -379,7 +398,9 @@ def _prepare_upload(
     )
 
 
-def _select_columns(raw_df: pd.DataFrame) -> tuple[dict[str, str], str | None]:
+def _select_columns(
+    raw_df: pd.DataFrame, configured_id: str | None = None
+) -> tuple[dict[str, str], str | None]:
     """One place to choose every column the pipeline reads.
 
     All four choices live together because they are the same decision from the
@@ -397,9 +418,15 @@ def _select_columns(raw_df: pd.DataFrame) -> tuple[dict[str, str], str | None]:
         A tuple of (field → chosen column, identifier column or None). The
         identifier is None when left on auto-detect, which leaves
         `Settings.account_name_column` unset so detection runs per file.
+
+    `configured_id` is `ACCOUNT_NAME_COLUMN` from `.env`: when this file has
+    that column it is pre-selected, and when it doesn't, detection takes over
+    — the same fallback the pipeline itself uses for a stale setting.
     """
     detected, _ = resolve_input_columns(raw_df.columns)
-    detected_id = find_account_name_column(raw_df.columns, frame=raw_df)
+    detected_id = find_account_name_column(
+        raw_df.columns, override=configured_id, frame=raw_df
+    )
     missing = [label for field, label in _MAPPABLE_FIELDS if field not in detected]
     if detected_id is None:
         missing.append("Identifier")
@@ -501,8 +528,11 @@ def _preview_remark(df: pd.DataFrame, config: Settings) -> None:
     )
 
 
-def _select_project_code(df: pd.DataFrame) -> str | None:
+def _select_project_code(df: pd.DataFrame, default: str | None = None) -> str | None:
     """Show the project-code input and return what the user typed (or None).
+
+    The box starts out holding `default` (`PROJECT_CODE` from `.env`), so a
+    team that always uses one code sets it once instead of on every upload.
 
     The code completes a short `C# 38305` case reference into the full
     `C#<case> <project_code> RESP AIRTIME-KSH<total> <activity>` Remark. A
@@ -511,12 +541,12 @@ def _select_project_code(df: pd.DataFrame) -> str | None:
     short_form_rows = count_short_form_rows(df)
     column = find_project_code_column(df.columns)
     if not short_form_rows and column is None:
-        return None  # nothing to complete and nowhere to put it
+        return default  # nothing to complete and nowhere to put it
 
     st.markdown("**Project code**")
     typed = st.text_input(
         "Project code for the case reference",
-        value="",
+        value=default or "",
         placeholder="e.g. 22505AA",
         help="Used to complete a short 'C# 38305' reference into the full Remark. "
         "A project_code column in the file takes precedence, row by row.",
@@ -540,7 +570,7 @@ def _select_project_code(df: pd.DataFrame) -> str | None:
     return typed or None
 
 
-def render_transform_page(country_prefix: str, amount_threshold: int):
+def render_transform_page(defaults: Settings, country_prefix: str, amount_threshold: int):
     """Upload → check columns → fix problems → download, as four numbered steps."""
     # --- Step 1: upload ---
     _step(1, "Upload your file")
@@ -579,7 +609,7 @@ def render_transform_page(country_prefix: str, amount_threshold: int):
     # detection found and lets the user override it, which is what makes a
     # header nobody has seen before workable without a code change.
     _step(2, "Check the columns")
-    column_choice, id_column = _select_columns(raw_df)
+    column_choice, id_column = _select_columns(raw_df, defaults.account_name_column)
     df = canonicalize_input_columns(raw_df, column_choice)
 
     st.caption(
@@ -588,14 +618,17 @@ def render_transform_page(country_prefix: str, amount_threshold: int):
     )
     st.dataframe(df.head(10), hide_index=True)
 
-    project_code = _select_project_code(df)
+    project_code = _select_project_code(df, defaults.project_code)
 
-    config = Settings(
-        max_amount_threshold=amount_threshold,
-        default_country_prefix=country_prefix,
-        account_name_column=id_column,
-        project_code=project_code,
-        openfloat_template_path=str(DEFAULT_TEMPLATE_PATH),
+    # The page's choices override .env; everything it has no control for
+    # (network map, template path) carries through from `defaults`.
+    config = defaults.model_copy(
+        update={
+            "max_amount_threshold": amount_threshold,
+            "default_country_prefix": country_prefix,
+            "account_name_column": id_column,
+            "project_code": project_code,
+        }
     )
 
     _preview_remark(df, config)
@@ -751,7 +784,7 @@ def _download_report(report: StatementReport, statement_files: Sequence[Any]) ->
         )
 
 
-def render_statement_report_page(country_prefix: str):
+def render_statement_report_page(defaults: Settings, country_prefix: str):
     """Statement Report: analyse OpenFloat Transaction Statement exports."""
 
     def _txn_display_columns(txn):
@@ -818,10 +851,7 @@ def render_statement_report_page(country_prefix: str):
             )
             return
 
-    config = Settings(
-        default_country_prefix=country_prefix,
-        openfloat_template_path=str(DEFAULT_TEMPLATE_PATH),
-    )
+    config = defaults.model_copy(update={"default_country_prefix": country_prefix})
 
     with st.spinner("Building report..."):
         try:
