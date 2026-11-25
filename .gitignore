@@ -44,3 +44,6 @@ desktop.ini
 # Agent instruction files — kept locally, not published
 CLAUDE.md
 AGENTS.md
+
+# Front end (frontend/): dependencies and build output
+node_modules/

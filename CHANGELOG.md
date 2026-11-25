@@ -17,6 +17,10 @@ adheres to [Semantic Versioning](https://semver.org/).
   `docs/openapi.json`, and a test keeps it current.
 - **`openfloat` launcher** (`uv run openfloat`, `just app`): runs the API on
   127.0.0.1:8765 and exits with code 0 when the app is closed.
+- **React front end, first page** (`frontend/`, not yet what staff use).
+  "Prepare an OpenFloat upload" works end to end against the local API:
+  upload, column mapping, project code, problems and both downloads, with the
+  sidebar settings and Close the app. "Check payment results" comes next.
 - **Clear error when this app's own report is uploaded as a statement.** A
   Statement Report or Finance download fed back into Statement Report mode used
   to fail with a generic "no 'Transaction Statement' sheet" message. It now

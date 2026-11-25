@@ -112,6 +112,23 @@ just check    # lint, type-check and tests, the same checks CI runs
 just shortcut # Desktop + Start menu shortcut that launches this checkout
 ```
 
+### React front end (in progress)
+
+A React page in `frontend/` is replacing the Streamlit UI. It talks only to
+the HTTP API on `127.0.0.1`, so the app still works offline. Until it does
+everything Streamlit does, staff keep using Streamlit. Working on it needs
+Node 20.19 or newer (see `frontend/.nvmrc`); staff machines never need Node.
+
+```bash
+npm --prefix frontend install   # once, and after package.json changes
+just web-both                   # API on :8000 + page on http://127.0.0.1:5173
+just web-check                  # type-check, tests and production build
+just openapi                    # after an API change: schema + TypeScript types
+```
+
+Colours, type, spacing and radii come from `frontend/src/styles/tokens.css`;
+components use those tokens rather than raw values.
+
 If you don't have just, each recipe in the `justfile` is a thin `uv run ...`
 wrapper you can run directly.
 
@@ -184,6 +201,8 @@ The full `Settings` model is in `src/openfloat_formatter/config.py`.
 src/openfloat_formatter/   the Python package: validation, normalization,
                            mapping, Excel output, statement reports, the
                            FastAPI app, and the Streamlit UI (ui/app.py)
+frontend/                  the React page replacing Streamlit (Vite +
+                           TypeScript; tests run with Vitest)
 tests/                     pytest suite
 docs/                      reference data (OpenFloat template, fillable input
                            template) and GOTCHA.md dev notes

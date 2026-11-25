@@ -56,9 +56,26 @@ typecheck:
 # Everything CI checks: lint, type-check, tests
 check: lint typecheck test
 
-# Regenerate docs/openapi.json after an API change (a test fails until you do)
+# Regenerate docs/openapi.json after an API change (a test fails until you do),
+# then the front end's TypeScript types from it
 openapi:
     uv run python scripts/export_openapi.py
+    npm --prefix frontend run gen:api
+
+# React page in development on http://127.0.0.1:5173, forwarding API calls to
+# `just api` (run that too, or use `just web-both`)
+web-dev:
+    -npm --prefix frontend run dev
+
+# API and the React dev page together; Ctrl+C stops both
+[parallel]
+web-both: api web-dev
+
+# Front-end checks: type-check, tests, production build
+web-check:
+    npm --prefix frontend run typecheck
+    npm --prefix frontend test
+    npm --prefix frontend run build
 
 # Regenerate docs/processmaker-input-template.xlsx
 template:

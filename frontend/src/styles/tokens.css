@@ -1,0 +1,91 @@
+/*
+ * Design tokens: the one source of truth for colour, type, spacing, radius and
+ * motion. Components use these and never pick their own values. If a component
+ * needs something that isn't here, extend this file on purpose.
+ *
+ * Archetype: utilitarian corporate-clean, for a short task done by
+ * non-technical staff. It carries over the slate-and-blue palette staff
+ * already know from the Streamlit version (.streamlit/config.toml).
+ *
+ * Scheme: dark only, deliberately. The Streamlit theme fixed it rather than
+ * following the OS so every laptop shows the same tool, and this keeps that.
+ * `color-scheme: dark` makes native controls (scrollbars, select popups,
+ * file pickers) match.
+ *
+ * Contrast (WCAG 2.2 AA), measured against --bg #0F172A and --surface #1E293B:
+ *   --text       14:1 on bg,  11:1 on surface
+ *   --text-muted  7:1 on bg, 5.7:1 on surface
+ *   --accent with white text: 5.2:1 (a lighter blue drops under 4.5)
+ *   --link        7:1 on bg
+ *   --border-control 3.7:1 on bg, the 3:1 floor for input and focus boundaries;
+ *     --border is decorative only (dividers, panel edges), never the only cue.
+ *   --danger / --warning / --success text are all above 8:1 on bg.
+ *
+ * Fonts: what Windows 11 ships, so nothing is fetched. The app works offline
+ * and makes no outside requests.
+ */
+:root {
+  color-scheme: dark;
+
+  /* Colour. The hex in each comment is the Streamlit value it replaces. */
+  --bg: oklch(20.8% 0.042 265.8); /* #0F172A */
+  --bg-sunken: oklch(17.5% 0.03 265); /* #0B1120, sidebar */
+  --surface: oklch(27.9% 0.041 260); /* #1E293B, panels, header band */
+  --border: oklch(37.2% 0.044 257.3); /* #334155 */
+  --border-control: oklch(55.4% 0.046 257.4); /* #64748B */
+  --text: oklch(92.9% 0.013 255.5); /* #E2E8F0 */
+  --text-strong: oklch(96.8% 0.007 247.9); /* #F1F5F9, headings */
+  --text-muted: oklch(71.1% 0.035 256.8); /* #94A3B8 */
+  --accent: oklch(54.6% 0.215 262.9); /* #2563EB */
+  --accent-hover: color-mix(in oklch, var(--accent) 85%, black);
+  --on-accent: oklch(100% 0 0);
+  --link: oklch(70.7% 0.165 254.6); /* #60A5FA */
+
+  /* Status: text colour plus a faint tint of the same hue for the panel. */
+  --danger: oklch(80.8% 0.114 19.6); /* #FCA5A5 */
+  --warning: oklch(87.9% 0.153 91.6); /* #FCD34D */
+  --success: oklch(87.1% 0.15 154.4); /* #86EFAC */
+  --info: var(--link);
+  --tint: 14%; /* status background = colour mixed into --bg at this share */
+
+  /* Type: one family (two optical sizes), fluid scale with ratio 1.2. */
+  --font-body: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-display: "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-mono: "Cascadia Mono", Consolas, ui-monospace, monospace;
+  --text-sm: clamp(0.8125rem, 0.79rem + 0.1vw, 0.875rem);
+  --text-base: clamp(0.9375rem, 0.91rem + 0.12vw, 1rem);
+  --text-lg: clamp(1.125rem, 1.08rem + 0.2vw, 1.2rem);
+  --text-xl: clamp(1.35rem, 1.28rem + 0.3vw, 1.44rem);
+  --text-2xl: clamp(1.6rem, 1.5rem + 0.45vw, 1.75rem);
+  --weight-heading: 600;
+  --measure: 72ch; /* max line length for running text */
+
+  /* Spacing: 4px base. */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-12: 3rem;
+
+  /* Radius by role: controls are tighter than the panels that hold them. */
+  --radius-control: 6px;
+  --radius-panel: 10px;
+  --radius-pill: 999px;
+
+  /* Motion: colour and border changes on hover/focus only; nothing moves. */
+  --duration-quick: 120ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+
+  /* Layout */
+  --page-max: 1240px;
+  --sidebar-width: 17rem;
+  --focus-ring: 2px solid var(--link);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-quick: 0ms;
+  }
+}
