@@ -2,6 +2,10 @@
  * "Prepare an OpenFloat upload": upload → check columns → fix problems →
  * download, as four numbered steps.
  *
+ * Layout: steps 1-3 run down the page; step 4 (the figures and the Download
+ * button) sits in a summary panel beside them that stays in view, so the
+ * outcome is never a long scroll away. On a narrow window it drops below.
+ *
  * The file stays in the browser and is posted again whenever a choice
  * changes. The API keeps nothing between requests, so no upload outlives the
  * request that read it.
@@ -18,16 +22,7 @@ import {
   type UploadChoices,
   type UploadPreview,
 } from "../api/client";
-import {
-  DataTable,
-  ErrorNotice,
-  FileDrop,
-  Metric,
-  MetricRow,
-  Notice,
-  SettingsBlocked,
-  Step,
-} from "../components/ui";
+import { DataTable, ErrorNotice, FileDrop, Notice, SettingsBlocked, Stats, Step } from "../components/ui";
 import { ISSUE_COLUMNS, MAPPABLE_FIELDS, issueRows } from "./labels";
 
 /** How long typing in the Project code box waits before asking the API again. */
@@ -119,86 +114,84 @@ export function TransformPage({ settings }: { settings: TransformSettings }) {
   }
 
   const stem = file ? file.name.replace(/\.[^.]+$/, "") : "upload";
+  const ready = check !== null && check.preview.row_count > 0;
 
   if (settings.blocked) return <SettingsBlocked />;
 
   return (
-    <>
-      <Step number={1} title="Upload your file" />
-      <FileDrop
-        label="Your Process Maker airtime export (CSV or Excel)"
-        hint="Drag the file here, or click to pick it."
-        accept=".csv,.xlsx,.xls,.xlsm"
-        onFiles={pickFile}
-        files={file ? [file] : []}
-      />
+    <div className={ready ? "page page-with-rail" : "page"}>
+      <div className="page-main" aria-busy={busy}>
+        <Step number={1} title="Upload your file" />
+        <FileDrop
+          label="Your Process Maker airtime export (CSV or Excel)"
+          hint="Drag the file here, or click to pick it."
+          accept=".csv,.xlsx,.xls,.xlsm"
+          onFiles={pickFile}
+          files={file ? [file] : []}
+        />
 
-      {!file && !error && (
-        <Notice tone="info">
-          Upload a file to get started. Filling one in by hand? Use{" "}
-          <code>docs/processmaker-input-template.xlsx</code> in the app's folder. It has the
-          right columns already.
-        </Notice>
-      )}
-      {error !== null && <FileError error={error} />}
-      {file && !check && !error && <p className="muted" role="status">Reading your file…</p>}
+        {!file && !error && (
+          <Notice tone="info">
+            Upload a file to get started. Filling one in by hand? Use{" "}
+            <code>docs/processmaker-input-template.xlsx</code> in the app's folder. It has the
+            right columns already.
+          </Notice>
+        )}
+        {error !== null && <FileError error={error} />}
+        {file && !check && !error && <p className="muted" role="status">Reading your file…</p>}
 
-      {check && check.preview.row_count === 0 && (
-        <Notice tone="warning">This file has column headers but no rows. Is it the right file?</Notice>
-      )}
+        {check && check.preview.row_count === 0 && (
+          <Notice tone="warning">This file has column headers but no rows. Is it the right file?</Notice>
+        )}
 
-      {check && check.preview.row_count > 0 && (
-        <div aria-busy={busy}>
-          <Step number={2} title="Check the columns" />
-          <ColumnMapping
-            preview={check.preview}
-            overrides={overrides}
-            identifierChoice={identifier}
-            onOverride={(field, column) =>
-              setOverrides((current) => {
-                const next = { ...current };
-                if (column === NOT_PRESENT) delete next[field];
-                else next[field] = column;
-                return next;
-              })
-            }
-            onIdentifier={(column) => setIdentifier(column === AUTO_DETECT ? null : column)}
-          />
-          <p className="muted">
-            Your file has <strong>{check.preview.row_count} rows</strong>. The first{" "}
-            {Math.min(check.preview.row_count, check.preview.preview_rows.length)} are shown below
-            so you can check it is the right file.
-          </p>
-          <DataTable
-            caption="First rows of your file"
-            columns={check.preview.preview_columns}
-            rows={check.preview.preview_rows}
-          />
-          <ProjectCode preview={check.preview} value={projectCode} onChange={setProjectCode} />
-          {check.preview.remark_preview && (
-            <p className="muted">
-              Remark preview (row 1): <code>{check.preview.remark_preview}</code>
-              {!check.preview.remark_readable &&
-                " (not a case reference the statement report can read)"}
-            </p>
-          )}
+        {ready && (
+          <>
+            <Step number={2} title="Check the columns" />
+            <ColumnMapping
+              preview={check.preview}
+              overrides={overrides}
+              identifierChoice={identifier}
+              onOverride={(field, column) =>
+                setOverrides((current) => {
+                  const next = { ...current };
+                  if (column === NOT_PRESENT) delete next[field];
+                  else next[field] = column;
+                  return next;
+                })
+              }
+              onIdentifier={(column) => setIdentifier(column === AUTO_DETECT ? null : column)}
+            />
+            <ProjectCode preview={check.preview} value={projectCode} onChange={setProjectCode} />
+            <details className="panel">
+              <summary>
+                Preview the first {check.preview.preview_rows.length} of{" "}
+                {check.preview.row_count} rows
+              </summary>
+              <DataTable
+                caption="First rows of your file"
+                columns={check.preview.preview_columns}
+                rows={check.preview.preview_rows}
+              />
+            </details>
 
-          <Problems check={check} onDownloadRejected={() => download("/rejected-rows", `${stem}_rows_to_fix.xlsx`)} />
+            <Problems
+              check={check}
+              onDownloadRejected={() => download("/rejected-rows", `${stem}_rows_to_fix.xlsx`)}
+            />
+          </>
+        )}
+      </div>
 
-          <Step number={4} title="Download your upload file" />
-          <DownloadStep
+      {ready && (
+        <aside className="page-rail" aria-label="Your upload file">
+          <DownloadCard
             check={check}
             onDownload={() => download("/transform", `${stem}_openfloat.xlsx`)}
+            downloadError={downloadError}
           />
-          {downloadError !== null && (
-            <ErrorNotice
-              message="Something went wrong while building the file. Nothing was downloaded. Try again, and if it keeps happening, ask for help."
-              error={downloadError}
-            />
-          )}
-        </div>
+        </aside>
       )}
-    </>
+    </div>
   );
 }
 
@@ -223,10 +216,9 @@ function FileError({ error }: { error: unknown }) {
 }
 
 /**
- * Every column choice in one place: they're the same decision from the user's
- * side ("which of my columns is this?"). Detection pre-selects each, so a
- * recognised file needs no interaction and this stays closed. It opens by
- * itself when something is missing.
+ * Which column each field is read from, as a summary rather than a form: a
+ * recognised file needs no interaction, so the dropdowns stay out of the way
+ * until "Change" is clicked. They open by themselves when something is missing.
  */
 function ColumnMapping({ preview, overrides, identifierChoice, onOverride, onIdentifier }: {
   preview: UploadPreview;
@@ -235,87 +227,124 @@ function ColumnMapping({ preview, overrides, identifierChoice, onOverride, onIde
   onOverride: (field: string, column: string) => void;
   onIdentifier: (column: string) => void;
 }) {
-  const missing = [
-    ...MAPPABLE_FIELDS.filter(([field]) => preview.missing_fields.includes(field)).map(([, label]) => label),
-    ...(preview.identifier_column === null ? ["Identifier"] : []),
-  ];
+  const [editing, setEditing] = useState(false);
+  const missingLabels = MAPPABLE_FIELDS.filter(([field]) => preview.missing_fields.includes(field)).map(
+    ([, label]) => label,
+  );
+  const mustPick = missingLabels.length > 0;
+  const open = editing || mustPick;
   const identifierValue =
     identifierChoice === null ? AUTO_DETECT : (identifierChoice ?? preview.identifier_column ?? AUTO_DETECT);
 
   return (
     <>
-      <details className="panel" open={missing.length > 0}>
-        <summary>
-          Column mapping{missing.length > 0 && ` (${missing.length} not found)`}
-        </summary>
-        <p className="muted">
-          Your export can name these columns anything. We guess from the header; correct any that
-          are wrong.
-        </p>
-        <div className="field-grid">
-          {MAPPABLE_FIELDS.map(([field, label]) => {
-            const current = overrides[field] ?? preview.mapping[field] ?? NOT_PRESENT;
-            const found = current !== NOT_PRESENT && preview.columns.includes(current);
-            return (
-              <div key={field} className="field">
-                <label className="field-control">
-                  <span className="field-label">{label}</span>
-                  <select value={found ? current : NOT_PRESENT} onChange={(event) => onOverride(field, event.target.value)}>
-                    {/* Offered only when there's genuinely nothing to point at. */}
-                    {!found && <option value={NOT_PRESENT}>(not in this file)</option>}
-                    {preview.columns.map((column) => (
-                      <option key={column} value={column}>{column}</option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-            );
-          })}
-          <div className="field">
-            <label className="field-control">
-              <span className="field-label">Identifier (Account Name)</span>
-              <select
-                value={identifierValue}
-                onChange={(event) => onIdentifier(event.target.value)}
-                aria-describedby="identifier-help"
-              >
-                <option value={AUTO_DETECT}>(auto-detect)</option>
-                {preview.columns.map((column) => (
-                  <option key={column} value={column}>{column}</option>
-                ))}
-              </select>
-            </label>
-            <span className="field-help" id="identifier-help">
-              Staff ID, Respondent ID, Case ID: whatever this export calls it. Written to the
-              output Account Name so a payment can be traced back to its source record.
-            </span>
-          </div>
+      <section className="panel" aria-labelledby="columns-heading">
+        <div className="panel-head">
+          <h3 id="columns-heading" className="panel-title">
+            {mustPick ? `Columns: ${missingLabels.length} not found` : "Columns we'll read"}
+          </h3>
+          {!mustPick && (
+            <button
+              type="button"
+              className="button button-small"
+              aria-expanded={open}
+              onClick={() => setEditing((value) => !value)}
+            >
+              {open ? "Done" : "Change"}
+            </button>
+          )}
         </div>
-        {preview.identifier_column !== null ? (
-          <p className="muted">
-            Account Name will use <strong>{preview.identifier_column}</strong>:{" "}
-            {preview.identifier_filled}/{preview.row_count} rows have a value
-            {preview.identifier_samples.length > 0 && ` (e.g. ${preview.identifier_samples.join(", ")})`}
-          </p>
-        ) : (
-          <p className="text-warning">
-            No identifier column detected. Account Name will be blank for every row unless you
-            pick one.
-          </p>
+
+        <dl className="mapping">
+          {MAPPABLE_FIELDS.map(([field, label]) => (
+            <div key={field}>
+              <dt>{label}</dt>
+              <dd>
+                {preview.mapping[field] ?? <span className="text-danger">Not found</span>}
+              </dd>
+            </div>
+          ))}
+          <div>
+            <dt>Account Name</dt>
+            <dd>
+              {preview.identifier_column ?? <span className="text-warning">None, will be blank</span>}
+              {preview.identifier_column !== null && (
+                <span className="mapping-note">
+                  {preview.identifier_filled} of {preview.row_count} rows filled
+                  {preview.identifier_samples.length > 0 &&
+                    `, e.g. ${preview.identifier_samples.join(", ")}`}
+                </span>
+              )}
+            </dd>
+          </div>
+          {preview.remark_preview && (
+            <div className="mapping-wide">
+              <dt>Remark (row 1)</dt>
+              <dd>
+                <code>{preview.remark_preview}</code>
+                {!preview.remark_readable && (
+                  <span className="mapping-note text-warning">
+                    Not a case reference the payment results page can read.
+                  </span>
+                )}
+              </dd>
+            </div>
+          )}
+        </dl>
+
+        {open && (
+          <div className="field-grid mapping-edit">
+            {MAPPABLE_FIELDS.map(([field, label]) => {
+              const current = overrides[field] ?? preview.mapping[field] ?? NOT_PRESENT;
+              const found = current !== NOT_PRESENT && preview.columns.includes(current);
+              return (
+                <div key={field} className="field">
+                  <label className="field-control">
+                    <span className="field-label">{label}</span>
+                    <select
+                      value={found ? current : NOT_PRESENT}
+                      onChange={(event) => onOverride(field, event.target.value)}
+                    >
+                      {/* Offered only when there's genuinely nothing to point at. */}
+                      {!found && <option value={NOT_PRESENT}>(not in this file)</option>}
+                      {preview.columns.map((column) => (
+                        <option key={column} value={column}>{column}</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              );
+            })}
+            <div className="field">
+              <label className="field-control">
+                <span className="field-label">Account Name (ID column)</span>
+                <select
+                  value={identifierValue}
+                  onChange={(event) => onIdentifier(event.target.value)}
+                  aria-describedby="identifier-help"
+                >
+                  <option value={AUTO_DETECT}>(auto-detect)</option>
+                  {preview.columns.map((column) => (
+                    <option key={column} value={column}>{column}</option>
+                  ))}
+                </select>
+              </label>
+              <span className="field-help" id="identifier-help">
+                Staff ID, Respondent ID, Case ID: whatever this export calls it, so a payment can
+                be traced back to its record.
+              </span>
+            </div>
+          </div>
         )}
+
         {preview.mapping_warnings.map((warning) => (
-          <p key={warning} className="text-warning">{warning}</p>
+          <p key={warning} className="text-warning panel-note">{warning}</p>
         ))}
-      </details>
-      {preview.missing_fields.length > 0 && (
+      </section>
+      {mustPick && (
         <Notice tone="error">
-          No column chosen for:{" "}
-          <strong>
-            {MAPPABLE_FIELDS.filter(([field]) => preview.missing_fields.includes(field))
-              .map(([, label]) => label)
-              .join(", ")}
-          </strong>
-          . Every row will fail until you pick one under <strong>Column mapping</strong>.
+          No column chosen for: <strong>{missingLabels.join(", ")}</strong>. Every row will fail
+          until you pick one above.
         </Notice>
       )}
     </>
@@ -324,19 +353,22 @@ function ColumnMapping({ preview, overrides, identifierChoice, onOverride, onIde
 
 /**
  * The project code completes a short `C# 38305` case reference into the full
- * Remark. A project-code column in the file wins row by row; this is the
- * fallback, so the box only appears when it could matter.
+ * Remark, so it only appears when the file has short references to complete.
+ * A project-code column in the file wins row by row; this is the fallback.
  */
 function ProjectCode({ preview, value, onChange }: {
   preview: UploadPreview;
   value: string;
   onChange: (value: string) => void;
 }) {
-  if (!preview.short_form_rows && preview.project_code_column === null) return null;
+  if (!preview.short_form_rows) return null;
   const typed = value.trim();
   return (
-    <div className="panel">
-      <div className="field">
+    <section className="panel" aria-labelledby="project-code-heading">
+      <h3 id="project-code-heading" className="panel-title">
+        {preview.short_form_rows} row(s) have a short case reference
+      </h3>
+      <div className="field field-inline">
         <label className="field-control">
           <span className="field-label">Project code for the case reference</span>
           <input
@@ -348,23 +380,17 @@ function ProjectCode({ preview, value, onChange }: {
           />
         </label>
         <span className="field-help" id="project-code-help">
-          Used to complete a short "C# 38305" reference into the full Remark. A project_code
-          column in the file takes precedence, row by row.
+          {preview.project_code_column !== null
+            ? `Fills the rows where the file's ${preview.project_code_column} column is blank.`
+            : `Completes "C# 38305" into the full reference, e.g. C#38305 22505AA RESP AIRTIME-KSH28000 g06.`}
         </span>
       </div>
-      {preview.project_code_column !== null && (
-        <p className="muted">
-          This file has a <strong>{preview.project_code_column}</strong> column. It is used per
-          row, and this box only fills rows where it is blank.
-        </p>
-      )}
       {typed.includes(" ") ? (
         <Notice tone="warning">
           A project code cannot contain spaces. The case reference would not be readable, so those
           rows would keep a short Remark.
         </Notice>
       ) : (
-        preview.short_form_rows > 0 &&
         !typed &&
         preview.project_code_column === null && (
           <Notice tone="warning">
@@ -373,7 +399,7 @@ function ProjectCode({ preview, value, onChange }: {
           </Notice>
         )
       )}
-    </div>
+    </section>
   );
 }
 
@@ -382,43 +408,33 @@ function Problems({ check, onDownloadRejected }: { check: UploadCheck; onDownloa
   const errors = report.errors ?? [];
   const warnings = report.warnings ?? [];
   const counts = report.filtered_counts;
-  const leftOut = report.total_rows - report.valid_rows;
+  const reasons = [
+    counts?.invalid_phone ? `${counts.invalid_phone} invalid phone number` : null,
+    counts?.invalid_amount ? `${counts.invalid_amount} invalid amount` : null,
+    counts?.unmapped_network ? `${counts.unmapped_network} unrecognised network` : null,
+  ].filter((reason): reason is string => reason !== null);
 
   return (
     <>
       <Step number={3} title="Fix any problems" />
-      <MetricRow>
-        <Metric label="Rows in your file" value={report.total_rows} />
-        <Metric label="Ready for OpenFloat" value={report.valid_rows} />
-        <Metric label="Left out" value={leftOut} />
-      </MetricRow>
 
       {errors.length > 0 && (
         <details className="panel panel-error" open>
           <summary>Rows that will be left out ({errors.length})</summary>
+          {reasons.length > 0 && <p className="panel-note">{reasons.join(", ")}.</p>}
           <p className="muted">
             Row numbers match the rows in your own spreadsheet. Fix these at the source, then upload
             the corrected file here again.
           </p>
           <DataTable caption="Rows that will be left out" columns={ISSUE_COLUMNS} rows={issueRows(errors)} />
-          <button type="button" className="button" onClick={onDownloadRejected}>
-            Download the rows that need fixing
-          </button>
-          <p className="field-help">
-            Send this to whoever compiled the file. It has their own columns plus the reason each
-            row was left out.
-          </p>
-        </details>
-      )}
-
-      {counts && (counts.invalid_phone > 0 || counts.invalid_amount > 0 || counts.unmapped_network > 0) && (
-        <details className="panel">
-          <summary>Why rows were left out</summary>
-          <ul>
-            {counts.invalid_phone > 0 && <li>Invalid phone number: <strong>{counts.invalid_phone}</strong></li>}
-            {counts.invalid_amount > 0 && <li>Invalid amount: <strong>{counts.invalid_amount}</strong></li>}
-            {counts.unmapped_network > 0 && <li>Unrecognised network: <strong>{counts.unmapped_network}</strong></li>}
-          </ul>
+          <div className="panel-actions">
+            <button type="button" className="button" onClick={onDownloadRejected}>
+              Download the rows that need fixing
+            </button>
+            <span className="field-help">
+              Their own columns plus the reason, to send to whoever compiled the file.
+            </span>
+          </div>
         </details>
       )}
 
@@ -440,34 +456,54 @@ function Problems({ check, onDownloadRejected }: { check: UploadCheck; onDownloa
   );
 }
 
-function DownloadStep({ check, onDownload }: { check: UploadCheck; onDownload: () => void }) {
-  const leftOut = check.report.total_rows - check.report.valid_rows;
-  if (check.output_row_count === 0) {
-    return (
-      <Notice tone="error">
-        There is nothing to download: every row was left out. Fix the rows above and upload the
-        file again.
-      </Notice>
-    );
-  }
+/** Step 4, in the summary panel: the figures, then the one thing to do next. */
+function DownloadCard({ check, onDownload, downloadError }: {
+  check: UploadCheck;
+  onDownload: () => void;
+  downloadError: unknown;
+}) {
+  const report = check.report;
+  const leftOut = report.total_rows - report.valid_rows;
   return (
-    <>
-      {/* The easiest mistake here is uploading a partial file believing it is
-          complete, so say so right beside the button. */}
-      {leftOut > 0 && (
-        <Notice tone="warning">
-          This file is <strong>missing {leftOut} row(s)</strong> that had problems (see Step 3).
-          Those people will not be paid unless their rows are fixed and sent separately.
+    <section className="rail-card">
+      <Step number={4} title="Download your upload file" />
+      <Stats
+        items={[
+          ["Rows in your file", report.total_rows],
+          ["Ready for OpenFloat", report.valid_rows],
+          ["Left out", <span className={leftOut > 0 ? "text-danger" : undefined}>{leftOut}</span>],
+        ]}
+      />
+      {check.output_row_count === 0 ? (
+        <Notice tone="error">
+          There is nothing to download: every row was left out. Fix the rows and upload the file
+          again.
         </Notice>
+      ) : (
+        <>
+          {/* The easiest mistake here is uploading a partial file believing it
+              is complete, so say so right beside the button. */}
+          {leftOut > 0 && (
+            <Notice tone="warning">
+              This file is <strong>missing {leftOut} row(s)</strong> that had problems (see Step
+              3). Those people will not be paid unless their rows are fixed and sent separately.
+            </Notice>
+          )}
+          <button type="button" className="button button-primary button-block" onClick={onDownload}>
+            Download {check.output_row_count} rows for OpenFloat
+          </button>
+          <p className="rail-note">
+            Next: upload this file to OpenFloat. When the disbursement finishes, come back to{" "}
+            <strong>Check payment results</strong> with its Transaction Statement.
+          </p>
+        </>
       )}
-      <button type="button" className="button button-primary" onClick={onDownload}>
-        Download {check.output_row_count} rows for OpenFloat
-      </button>
-      <p className="muted">
-        Next: upload this file to OpenFloat. When the disbursement finishes, download its
-        Transaction Statement and come back to <strong>Check payment results</strong> to see what
-        went through.
-      </p>
-    </>
+      {downloadError !== null && (
+        <ErrorNotice
+          message="Something went wrong while building the file. Nothing was downloaded. Try again, and if it keeps happening, ask for help."
+          error={downloadError}
+        />
+      )}
+    </section>
   );
 }

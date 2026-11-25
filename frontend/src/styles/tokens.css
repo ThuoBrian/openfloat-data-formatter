@@ -81,8 +81,11 @@
   --duration-quick: 120ms;
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
 
-  /* Layout */
-  --page-max: 1240px;
+  /* Layout. The page is centred in the space beside the sidebar. A page with
+     a summary panel is wider, so the steps keep the single-column width. */
+  --page-max: 60rem;
+  --page-wide: 86rem;
+  --rail-width: 22rem;
   --sidebar-width: 17rem;
   --focus-ring: 2px solid var(--link);
 }

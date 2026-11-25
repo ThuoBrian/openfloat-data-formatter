@@ -89,6 +89,11 @@ pre {
   border-bottom: 1px solid var(--border);
 }
 
+.header > div {
+  flex: 1 1 24rem;
+  min-width: 0;
+}
+
 .header h1 {
   font-size: var(--text-2xl);
 }
@@ -97,6 +102,7 @@ pre {
   color: var(--text-muted);
   font-size: var(--text-sm);
   margin: var(--space-1) 0 0;
+  max-width: none;
 }
 
 .badge {
@@ -148,16 +154,88 @@ pre {
   margin-top: var(--space-3);
 }
 
-.sidebar-version {
+.sidebar-foot {
   margin-top: auto;
+  display: grid;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+
+.sidebar-version {
+  margin: 0;
   color: var(--text-muted);
   font-size: var(--text-sm);
 }
 
 .main {
   padding: var(--space-6) var(--space-8) var(--space-12);
-  max-width: var(--page-max);
   width: 100%;
+  min-width: 0;
+}
+
+/* The mode choice and every page share one centred column; a page with a
+   summary panel widens to make room for it. */
+.modes,
+.page {
+  max-width: var(--page-max);
+  margin-inline: auto;
+}
+
+.main:has(.page-with-rail) .modes,
+.page-with-rail {
+  max-width: var(--page-wide);
+}
+
+.page-with-rail {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--rail-width);
+  gap: var(--space-8);
+  align-items: start;
+}
+
+.page-main {
+  min-width: 0;
+}
+
+/* Stays in view while the steps scroll: the outcome is never a scroll away. */
+.page-rail {
+  position: sticky;
+  top: var(--space-4);
+}
+
+.rail-card {
+  padding: var(--space-4) var(--space-6) var(--space-6);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+  display: grid;
+  gap: var(--space-3);
+}
+
+.rail-card .step {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-lg);
+}
+
+.rail-card .notice {
+  margin: 0;
+}
+
+.rail-note {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+@media (max-width: 75rem) {
+  .page-with-rail {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .page-rail {
+    position: static;
+  }
 }
 
 @media (max-width: 56rem) {
@@ -179,7 +257,8 @@ pre {
 
 .modes {
   border: 0;
-  margin: 0 0 var(--space-4);
+  /* Centred like the page under it (see .modes, .page). */
+  margin: 0 auto var(--space-4);
   padding: 0;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
@@ -248,7 +327,7 @@ pre {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  margin: var(--space-8) 0 var(--space-3);
+  margin: var(--space-6) 0 var(--space-3);
   font-size: var(--text-xl);
 }
 
@@ -426,14 +505,14 @@ input[aria-invalid="true"] {
   margin-top: var(--space-2);
 }
 
-.download-grid {
+.upload-pair {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
-  gap: var(--space-4);
+  grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+  gap: 0 var(--space-6);
 }
 
-.download-grid .field-help {
-  margin-top: var(--space-2);
+.upload-pair .drop {
+  min-height: calc(100% - 3.75rem);
 }
 
 /* ---- File drop ------------------------------------------------------------ */
@@ -571,4 +650,160 @@ th {
   display: flex;
   gap: var(--space-3);
   margin-top: var(--space-4);
+}
+
+/* ---- File drop, once loaded ----------------------------------------------- */
+
+.drop-loaded {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-style: solid;
+  border-width: 1px;
+  border-color: var(--border);
+}
+
+.upload-pair .drop-loaded {
+  min-height: 0;
+}
+
+.drop-loaded .drop-files {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-width: 0;
+}
+
+.drop-file-name {
+  font-weight: var(--weight-heading);
+  overflow-wrap: anywhere;
+}
+
+.drop-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.drop-actions .button-small {
+  margin-top: 0;
+}
+
+/* ---- Panel parts ---------------------------------------------------------- */
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.panel-head .button-small {
+  margin-top: 0;
+}
+
+.panel-title {
+  font-family: var(--font-display);
+  font-weight: var(--weight-heading);
+  font-size: var(--text-base);
+  color: var(--text-strong);
+  margin: 0 0 var(--space-3);
+}
+
+.panel-head .panel-title {
+  margin: 0;
+}
+
+.panel-note {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-sm);
+}
+
+.panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.text-danger {
+  color: var(--danger);
+}
+
+.field-inline {
+  max-width: 32rem;
+}
+
+/* ---- Column summary ------------------------------------------------------- */
+
+.mapping {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: var(--space-3) var(--space-6);
+  margin: 0;
+}
+
+.mapping dt {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.mapping dd {
+  margin: 0;
+  font-weight: var(--weight-heading);
+  overflow-wrap: anywhere;
+}
+
+.mapping-wide {
+  grid-column: 1 / -1;
+}
+
+.mapping-note {
+  display: block;
+  font-weight: 400;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.mapping-note.text-warning {
+  color: var(--warning);
+}
+
+.mapping-edit {
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+
+/* ---- Stats (summary panel figures) ---------------------------------------- */
+
+.stats {
+  margin: 0;
+  display: grid;
+}
+
+.stats-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.stats dt {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.stats dd {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-heading);
+  font-variant-numeric: tabular-nums;
 }

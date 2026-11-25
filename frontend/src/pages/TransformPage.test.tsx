@@ -29,13 +29,19 @@ describe("TransformPage", () => {
   it("walks a clean file through to the download", async () => {
     const fetchMock = mockApi({ "/preview": () => json(makeCheck()) });
 
-    await upload();
+    const user = await upload();
 
-    expect(await screen.findByRole("button", { name: "Download 2 rows for OpenFloat" })).toBeInTheDocument();
+    // Step 4 sits in the summary panel beside the steps.
+    const summary = await screen.findByRole("complementary", { name: "Your upload file" });
+    expect(within(summary).getByRole("button", { name: "Download 2 rows for OpenFloat" })).toBeInTheDocument();
     expect(screen.getByText("Every row in this file can be uploaded.")).toBeInTheDocument();
-    expect(screen.getByText(/Account Name will use/)).toHaveTextContent("e.g. TEST001, TEST002");
-    // A recognised file needs no interaction, so the mapping stays closed.
-    expect(screen.getByText("Column mapping").closest("details")).not.toHaveAttribute("open");
+    expect(screen.getByText(/2 of 2 rows filled/)).toHaveTextContent("e.g. TEST001, TEST002");
+    // The loaded file shrinks to a bar.
+    expect(screen.getByRole("button", { name: "Choose a different file" })).toBeInTheDocument();
+    // A recognised file needs no interaction: the dropdowns wait behind "Change".
+    expect(screen.queryByRole("combobox", { name: "Amount" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Change" }));
+    expect(screen.getByRole("combobox", { name: "Amount" })).toHaveValue("amount");
     expect(sentForm(fetchMock, "/preview").get("country_prefix")).toBe("254");
   });
 
@@ -56,7 +62,8 @@ describe("TransformPage", () => {
     const user = await upload();
 
     expect(await screen.findByText(/No column chosen for/)).toHaveTextContent("Amount");
-    expect(screen.getByText(/Column mapping \(1 not found\)/).closest("details")).toHaveAttribute("open");
+    expect(screen.getByRole("heading", { name: "Columns: 1 not found" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Change" })).toBeNull(); // already open
     expect(screen.getByText(/There is nothing to download/)).toBeInTheDocument();
 
     await user.selectOptions(screen.getByRole("combobox", { name: "Amount" }), "Payout");
@@ -116,6 +123,15 @@ describe("TransformPage", () => {
     await user.type(screen.getByRole("textbox", { name: /Project code/ }), "22505AA");
 
     await waitFor(() => expect(sentForm(fetchMock, "/preview").get("project_code")).toBe("22505AA"));
+  });
+
+  it("hides the project code box when nothing needs completing", async () => {
+    mockApi({ "/preview": () => json(makeCheck({ short_form_rows: 0, project_code_column: "project_code" })) });
+
+    await upload();
+
+    await screen.findByRole("button", { name: /Download/ });
+    expect(screen.queryByRole("textbox", { name: /Project code/ })).toBeNull();
   });
 
   it("starts the identifier and project code from .env", async () => {

@@ -159,8 +159,10 @@ function Workspace({ defaults, onClosed }: { defaults: UiDefaults; onClosed: () 
           <Notice tone="error">The amount threshold must be a whole number, 0 or more.</Notice>
         )}
 
-        <CloseApp onClosed={onClosed} />
-        <p className="sidebar-version">Version {defaults.version} · Runs on this computer only</p>
+        <div className="sidebar-foot">
+          <CloseApp onClosed={onClosed} />
+          <p className="sidebar-version">Version {defaults.version}. Runs on this computer only.</p>
+        </div>
       </aside>
 
       <main className="main">

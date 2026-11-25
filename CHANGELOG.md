@@ -96,6 +96,13 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **Less crowded pages.** Content is centred and uses the width of the window;
+  the download (with its figures) sits in a summary panel beside the steps
+  that stays in view. A loaded file shrinks to a one-line bar, the column
+  choices show as a short summary with the dropdowns behind **Change** (open
+  by themselves when a column is missing), the row preview is collapsed, and
+  the project code box appears only when rows have a short case reference.
+  The payment results page puts its two uploads side by side.
 - **The app is now a React page served by the `openfloat` launcher, replacing
   Streamlit.** `run.bat` and the shortcut start it as before; it opens at
   `http://127.0.0.1:8765` instead of `localhost:8501`. Both pages, the sidebar

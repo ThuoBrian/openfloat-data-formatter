@@ -28,6 +28,7 @@ import {
   MetricRow,
   Notice,
   SettingsBlocked,
+  Stats,
   Step,
 } from "../components/ui";
 
@@ -134,57 +135,65 @@ export function StatementPage({ settings }: { settings: StatementSettings }) {
 
   if (settings.blocked) return <SettingsBlocked />;
 
+  const hasResults =
+    report !== null && (report.transactions ?? []).length > 0 && report.combined !== undefined;
+
   return (
-    <>
-      <Step number={1} title="Upload OpenFloat's statement" />
-      <FileDrop
-        label="Transaction Statement file(s) downloaded from OpenFloat"
-        hint="You can pick several at once if the disbursement was split."
-        accept=".xlsx,.xls,.xlsm"
-        multiple
-        files={statements}
-        onFiles={(files) => {
-          if (withinLimit(files)) setStatements(files);
-        }}
-      />
+    <div className={hasResults ? "page page-with-rail" : "page"}>
+      <div className="page-main">
+        <div className="upload-pair">
+          <section>
+            <Step number={1} title="Upload OpenFloat's statement" />
+            <FileDrop
+              label="Transaction Statement file(s) downloaded from OpenFloat"
+              hint="You can pick several at once if the disbursement was split."
+              accept=".xlsx,.xls,.xlsm"
+              multiple
+              files={statements}
+              onFiles={(files) => {
+                if (withinLimit(files)) setStatements(files);
+              }}
+            />
+          </section>
+          <section>
+            <Step number={2} title="Add your original file" optional />
+            <FileDrop
+              label="The Process Maker export you prepared the upload from"
+              hint="Add it to find people who were on your list but never paid."
+              accept=".csv,.xlsx,.xls,.xlsm"
+              files={input ? [input] : []}
+              onFiles={(files) => {
+                const picked = files[0] ?? null;
+                if (picked && withinLimit([picked])) setInput(picked);
+              }}
+              onClear={() => setInput(null)}
+            />
+          </section>
+        </div>
 
-      <Step number={2} title="Add your original file" optional />
-      <FileDrop
-        label="The Process Maker export you prepared the upload from"
-        hint="Add it to find people who were on your list but never paid."
-        accept=".csv,.xlsx,.xls,.xlsm"
-        files={input ? [input] : []}
-        onFiles={(files) => {
-          const picked = files[0] ?? null;
-          if (picked && withinLimit([picked])) setInput(picked);
-        }}
-      />
-      {input && (
-        <button type="button" className="button button-small" onClick={() => setInput(null)}>
-          Remove {input.name}
-        </button>
-      )}
+        {tooBig && (
+          <Notice tone="error">
+            '{tooBig}' is larger than 20 MB. A real statement is a few hundred KB. Is it the right file?
+          </Notice>
+        )}
 
-      {tooBig && (
-        <Notice tone="error">
-          '{tooBig}' is larger than 20 MB. A real statement is a few hundred KB. Is it the right file?
-        </Notice>
-      )}
+        {statements.length === 0 ? (
+          <Notice tone="info">Upload at least one Transaction Statement to see the results.</Notice>
+        ) : error !== null ? (
+          <ReportError error={error} hasInput={input !== null} />
+        ) : report === null ? (
+          <p className="muted" role="status">Building report…</p>
+        ) : (
+          <Results report={report} />
+        )}
+      </div>
 
-      {statements.length === 0 ? (
-        <Notice tone="info">Upload at least one Transaction Statement to see the results.</Notice>
-      ) : error !== null ? (
-        <ReportError error={error} hasInput={input !== null} />
-      ) : report === null ? (
-        <p className="muted" role="status">Building report…</p>
-      ) : (
-        <Results
-          report={report}
-          onDownload={download}
-          downloadError={downloadError}
-        />
+      {hasResults && (
+        <aside className="page-rail" aria-label="Payment totals and downloads">
+          <DownloadCard report={report} onDownload={download} downloadError={downloadError} />
+        </aside>
       )}
-    </>
+    </div>
   );
 }
 
@@ -207,11 +216,7 @@ function ReportError({ error, hasInput }: { error: unknown; hasInput: boolean })
   );
 }
 
-function Results({ report, onDownload, downloadError }: {
-  report: StatementReport;
-  onDownload: (kind: StatementWorkbook, fallback: string) => void;
-  downloadError: unknown;
-}) {
+function Results({ report }: { report: StatementReport }) {
   const errors = report.errors ?? [];
   const transactions = report.transactions ?? [];
   const unsuccessful = report.unsuccessful_transactions ?? [];
@@ -236,12 +241,6 @@ function Results({ report, onDownload, downloadError }: {
       ) : (
         <>
           <Step number={3} title="Results" />
-          <MetricRow>
-            <Metric label="Transactions" value={combined.total_rows ?? 0} />
-            <Metric label="Successful" value={combined.successful_count ?? 0} />
-            <Metric label="Unsuccessful" value={combined.unsuccessful_count ?? 0} />
-            <Metric label="Paid out (KES)" value={kes(combined.total_disbursed ?? 0)} />
-          </MetricRow>
           {(combined.unsuccessful_count ?? 0) > 0 && (
             <Notice tone="warning">
               <strong>{combined.unsuccessful_count}</strong> payment(s) did NOT go through. These
@@ -263,47 +262,12 @@ function Results({ report, onDownload, downloadError }: {
             <Notice tone="success">Every payment in every statement went through.</Notice>
           )}
 
-          <Step number={4} title="Download the reports" />
-          <div className="download-grid">
-            <div>
-              <button
-                type="button"
-                className="button button-primary button-block"
-                onClick={() => onDownload("report", "statement_report.xlsx")}
-              >
-                Statement Report (Excel)
-              </button>
-              <p className="field-help">
-                For project leads: Successful and Unsuccessful
-                {report.reconciliation ? ", plus the four reconciliation sheets" : ""}. Each sheet
-                is totalled at the bottom.
-              </p>
-            </div>
-            <div>
-              <button
-                type="button"
-                className="button button-primary button-block"
-                onClick={() => onDownload("finance", "finance_reconciliation.xlsx")}
-              >
-                Finance Reconciliation (Excel)
-              </button>
-              <p className="field-help">
-                Debit totals successful payments only; unsuccessful rows are shaded and excluded.
-              </p>
-            </div>
-          </div>
-          {downloadError !== null && (
-            <ErrorNotice
-              message="Something went wrong while building the report. Nothing was downloaded. Try again, and if it keeps happening, ask for help."
-              error={downloadError}
-            />
-          )}
+          <Reconciliation report={report} />
 
           <h3 className="subheading">More detail</h3>
           <FileSummaries report={report} />
           <StatusCounts report={report} />
           <CaseRollups report={report} />
-          <Reconciliation report={report} />
           {(report.warnings ?? []).length > 0 && (
             <details className="panel panel-warning">
               <summary>Rows we could not fully read ({report.warnings?.length})</summary>
@@ -317,6 +281,57 @@ function Results({ report, onDownload, downloadError }: {
         </>
       )}
     </>
+  );
+}
+
+/** Step 4, in the summary panel: the totals, then the two downloads. */
+function DownloadCard({ report, onDownload, downloadError }: {
+  report: StatementReport;
+  onDownload: (kind: StatementWorkbook, fallback: string) => void;
+  downloadError: unknown;
+}) {
+  const combined = report.combined;
+  const unsuccessful = combined?.unsuccessful_count ?? 0;
+  return (
+    <section className="rail-card">
+      <Step number={4} title="Download the reports" />
+      <Stats
+        items={[
+          ["Transactions", combined?.total_rows ?? 0],
+          ["Successful", combined?.successful_count ?? 0],
+          ["Unsuccessful", <span className={unsuccessful > 0 ? "text-danger" : undefined}>{unsuccessful}</span>],
+          ["Paid out (KES)", kes(combined?.total_disbursed ?? 0)],
+        ]}
+      />
+      <button
+        type="button"
+        className="button button-primary button-block"
+        onClick={() => onDownload("report", "statement_report.xlsx")}
+      >
+        Statement Report (Excel)
+      </button>
+      <p className="rail-note">
+        For project leads: Successful and Unsuccessful
+        {report.reconciliation ? ", plus the four reconciliation sheets" : ""}. Each sheet is
+        totalled at the bottom.
+      </p>
+      <button
+        type="button"
+        className="button button-primary button-block"
+        onClick={() => onDownload("finance", "finance_reconciliation.xlsx")}
+      >
+        Finance Reconciliation (Excel)
+      </button>
+      <p className="rail-note">
+        Debit totals successful payments only; unsuccessful rows are shaded and excluded.
+      </p>
+      {downloadError !== null && (
+        <ErrorNotice
+          message="Something went wrong while building the report. Nothing was downloaded. Try again, and if it keeps happening, ask for help."
+          error={downloadError}
+        />
+      )}
+    </section>
   );
 }
 

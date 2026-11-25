@@ -1,5 +1,5 @@
 /** Small building blocks shared by both pages. Styling lives in app.css. */
-import { useId, useState, type ReactNode } from "react";
+import { useId, useRef, useState, type ReactNode } from "react";
 
 /** A numbered step heading: the page's main way of saying "you are here". */
 export function Step({ number, title, optional = false }: {
@@ -102,21 +102,29 @@ export function DataTable({ columns, rows, caption }: {
   );
 }
 
-/** A drop zone that is also a normal, keyboard-reachable file input. */
-export function FileDrop({ label, hint, accept, multiple = false, onFiles, files }: {
+/**
+ * A drop zone that is also a normal, keyboard-reachable file input. Once a
+ * file is picked it shrinks to a one-line bar: the step is done, so it stops
+ * taking the space of a step still to do. Dropping onto the bar still works.
+ */
+export function FileDrop({ label, hint, accept, multiple = false, onFiles, files, onClear }: {
   label: string;
   hint: string;
   accept: string;
   multiple?: boolean;
   onFiles: (files: File[]) => void;
   files: File[];
+  /** Offered as "Remove" on the bar, for an optional file. */
+  onClear?: () => void;
 }) {
   const id = useId();
+  const input = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
+  const loaded = files.length > 0;
 
   return (
     <div
-      className={`drop${dragging ? " drop-active" : ""}`}
+      className={`drop${loaded ? " drop-loaded" : ""}${dragging ? " drop-active" : ""}`}
       onDragOver={(event) => {
         event.preventDefault();
         setDragging(true);
@@ -129,29 +137,63 @@ export function FileDrop({ label, hint, accept, multiple = false, onFiles, files
         if (dropped.length > 0) onFiles(multiple ? dropped : dropped.slice(0, 1));
       }}
     >
-      <label htmlFor={id} className="drop-label">{label}</label>
-      <p className="drop-hint">{hint}</p>
+      <label htmlFor={id} className={loaded ? "visually-hidden" : "drop-label"}>{label}</label>
+      {!loaded && <p className="drop-hint">{hint}</p>}
       <input
+        ref={input}
         id={id}
         type="file"
         accept={accept}
         multiple={multiple}
+        className={loaded ? "visually-hidden" : undefined}
         onChange={(event) => {
           onFiles(Array.from(event.target.files ?? []));
           // Let the same file be picked again after "Start over".
           event.target.value = "";
         }}
       />
-      {files.length > 0 && (
-        <ul className="drop-files">
-          {files.map((file) => (
-            <li key={`${file.name}-${file.size}`}>
-              {file.name} <span className="muted">({formatSize(file.size)})</span>
-            </li>
-          ))}
-        </ul>
+      {loaded && (
+        <>
+          <ul className="drop-files" aria-label={label}>
+            {files.map((file) => (
+              <li key={`${file.name}-${file.size}`}>
+                <span className="drop-file-name">{file.name}</span>{" "}
+                <span className="muted">({formatSize(file.size)})</span>
+              </li>
+            ))}
+          </ul>
+          <div className="drop-actions">
+            <button type="button" className="button button-small" onClick={() => input.current?.click()}>
+              {multiple ? "Choose different files" : "Choose a different file"}
+            </button>
+            {onClear && (
+              <button
+                type="button"
+                className="button button-small"
+                onClick={onClear}
+                aria-label={`Remove ${files.map((file) => file.name).join(", ")}`}
+              >
+                Remove
+              </button>
+            )}
+          </div>
+        </>
       )}
     </div>
+  );
+}
+
+/** Label/value pairs, read as a list: the summary panel's figures. */
+export function Stats({ items }: { items: Array<[label: string, value: ReactNode]> }) {
+  return (
+    <dl className="stats">
+      {items.map(([label, value]) => (
+        <div key={label} className="stats-row">
+          <dt>{label}</dt>
+          <dd>{value}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 
