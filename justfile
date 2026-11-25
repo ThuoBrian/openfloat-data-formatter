@@ -32,6 +32,11 @@ shortcut:
 api:
     -uv run uvicorn openfloat_formatter.main:app --reload --host 127.0.0.1 --port 8000
 
+# The local app launcher on http://127.0.0.1:8765 (what run.bat will start once
+# the React page replaces Streamlit)
+app:
+    -uv run openfloat
+
 # API and UI together in this terminal; Ctrl+C stops both
 [parallel]
 both: api ui
@@ -50,6 +55,10 @@ typecheck:
 
 # Everything CI checks: lint, type-check, tests
 check: lint typecheck test
+
+# Regenerate docs/openapi.json after an API change (a test fails until you do)
+openapi:
+    uv run python scripts/export_openapi.py
 
 # Regenerate docs/processmaker-input-template.xlsx
 template:

@@ -27,6 +27,10 @@ dependencies = [
     "xlrd>=2.0.1",
 ]
 
+[project.scripts]
+# Local app launcher (API on 127.0.0.1); see src/openfloat_formatter/serve.py.
+openfloat = "openfloat_formatter.serve:main"
+
 [project.urls]
 Homepage = "https://github.com/ThuoBrian/openfloat-data-formatter"
 Repository = "https://github.com/ThuoBrian/openfloat-data-formatter"

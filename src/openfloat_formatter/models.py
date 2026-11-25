@@ -99,6 +99,49 @@ class TransformResult(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Upload preview (what the column-mapping step shows; see upload_preview.py)
+# ---------------------------------------------------------------------------
+
+
+class UploadPreview(BaseModel):
+    """One input file as it will be read, given the user's column picks."""
+
+    columns: list[str]  # the file's own headers, in order
+    row_count: int
+    detected: dict[str, str]  # canonical field → column detection picked
+    mapping: dict[str, str]  # canonical field → column actually used, picks applied
+    missing_fields: list[str]  # mappable fields with no column; every row fails
+    mapping_warnings: list[str]
+    identifier_column: str | None  # feeds 'Account Name'; None = none found
+    identifier_filled: int  # rows with a non-empty identifier
+    identifier_samples: list[str]
+    preview_columns: list[str]  # canonical names, as the pipeline sees them
+    preview_rows: list[list[str]]  # first rows as text; empty cells are ""
+    short_form_rows: int  # rows whose case reference is the short `C#<case>`
+    project_code_column: str | None
+    remark_preview: str | None  # the Remark row 1 will get
+    remark_readable: bool  # whether the statement report can parse it back
+
+
+class UploadCheck(BaseModel):
+    """Preview, validation and row count for one upload: the whole Transform page."""
+
+    preview: UploadPreview
+    report: ValidationReport
+    output_row_count: int  # 0 = nothing to download
+
+
+class UiDefaults(BaseModel):
+    """The settings the app's controls start from (built-in defaults plus .env)."""
+
+    default_country_prefix: str
+    max_amount_threshold: int
+    project_code: str | None
+    account_name_column: str | None
+    version: str
+
+
+# ---------------------------------------------------------------------------
 # Statement Report Models
 #
 # These model OpenFloat 'Transaction Statement' exports — the reports the SaaS

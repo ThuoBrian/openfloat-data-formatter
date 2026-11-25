@@ -8,6 +8,15 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **The HTTP API covers everything the app does**, groundwork for a React
+  front end that will replace Streamlit. New endpoints: `/preview` (column
+  mapping, Remark preview, validation and row count in one call),
+  `/rejected-rows`, `/statement-report/workbook?kind=report|finance`,
+  `/settings` and `/shutdown`. File endpoints now take `column_overrides`,
+  `country_prefix` and `max_amount_threshold`. The schema is committed as
+  `docs/openapi.json`, and a test keeps it current.
+- **`openfloat` launcher** (`uv run openfloat`, `just app`): runs the API on
+  127.0.0.1:8765 and exits with code 0 when the app is closed.
 - **Clear error when this app's own report is uploaded as a statement.** A
   Statement Report or Finance download fed back into Statement Report mode used
   to fail with a generic "no 'Transaction Statement' sheet" message. It now
@@ -73,6 +82,10 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **Every API POST now needs the `X-OpenFloat-Client: 1` header**, and the API
+  only answers requests addressed to `127.0.0.1` or `localhost`. Together these
+  stop other web pages in the same browser from posting files to it. Scripts
+  that call the API need to add the header.
 - **A `justfile` replaces `start.bat` and `start.sh`.** Developer commands are
   now `just ui`, `just api`, `just both`, `just test` and `just check` (the same
   lint, type-check and test gates CI runs). `just both` runs both servers in one

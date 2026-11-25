@@ -16,7 +16,6 @@ import re
 import signal
 import threading
 from collections.abc import Sequence
-from importlib.metadata import PackageNotFoundError, version
 from io import BytesIO
 from pathlib import Path
 from typing import Any
@@ -25,25 +24,25 @@ import pandas as pd
 import streamlit as st
 from pydantic import ValidationError
 
+from openfloat_formatter import app_version
 from openfloat_formatter.config import COUNTRY_PREFIX_PATTERN, Settings
 from openfloat_formatter.models import StatementReport, ValidationIssue, ValidationReport
 from openfloat_formatter.normalizer import (
     canonicalize_input_columns,
     find_account_name_column,
-    parse_case_remark,
-    read_text_cell,
     resolve_input_columns,
 )
-from openfloat_formatter.remark import (
-    build_remark,
-    count_short_form_rows,
-    find_project_code_column,
-)
+from openfloat_formatter.remark import count_short_form_rows, find_project_code_column
 from openfloat_formatter.statement import build_statement_report
 from openfloat_formatter.transformer import read_input_file, transform_frame
-from openfloat_formatter.validator import remark_context
+from openfloat_formatter.upload_preview import (
+    MAPPABLE_FIELDS,
+    identifier_summary,
+    mapping_warnings,
+    remark_preview,
+)
 from openfloat_formatter.writer import (
-    remark_file_stem,
+    statement_download_name,
     write_finance_workbook,
     write_rejected_rows_workbook,
     write_statement_workbook,
@@ -136,7 +135,7 @@ def main():
         width="stretch",
     ):
         _confirm_close()
-    st.sidebar.caption(f"Version {_app_version()} · Runs on this computer only")
+    st.sidebar.caption(f"Version {app_version()} · Runs on this computer only")
 
     # A blank or mistyped prefix would silently rewrite every phone number in
     # the batch, so nothing runs until it is a plain country code.
@@ -263,13 +262,6 @@ _PAGE_CSS = f"""
 """
 
 
-def _app_version() -> str:
-    try:
-        return version("openfloat-data-formatter")
-    except PackageNotFoundError:  # running from a checkout that isn't installed
-        return "dev"
-
-
 def _render_header() -> None:
     st.html(
         '<div class="of-header"><div>'
@@ -334,22 +326,12 @@ def _show_error(message: str, exc: Exception) -> None:
 XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 
-# The fields worth letting a user map by hand, with the plain-English label
-# shown in the picker. Only these three fail every row when missing; the rest
-# degrade gracefully, so cluttering the form with them would cost more than
-# it gives.
-_MAPPABLE_FIELDS = (
-    ("airtime_phone", "Phone number"),
-    ("network", "Network / provider"),
-    ("amount", "Amount"),
-)
-
 _NOT_PRESENT = "— not in this file —"
 
 # Validation issues name the canonical field, which is our word for it, not the
 # user's. Anything unlisted falls through to the raw name rather than hiding.
 _FIELD_LABELS = {
-    **dict(_MAPPABLE_FIELDS),
+    **dict(MAPPABLE_FIELDS),
     "account_name": "ID (Account Name)",
     "case_remark": "Case reference",
     "project_code": "Project code",
@@ -427,7 +409,7 @@ def _select_columns(
     detected_id = find_account_name_column(
         raw_df.columns, override=configured_id, frame=raw_df
     )
-    missing = [label for field, label in _MAPPABLE_FIELDS if field not in detected]
+    missing = [label for field, label in MAPPABLE_FIELDS if field not in detected]
     if detected_id is None:
         missing.append("Identifier")
 
@@ -441,7 +423,7 @@ def _select_columns(
         )
         columns = [str(column) for column in raw_df.columns]
         chosen: dict[str, str] = {}
-        for field, label in _MAPPABLE_FIELDS:
+        for field, label in MAPPABLE_FIELDS:
             current = detected.get(field)
             # The sentinel is offered only when there is genuinely nothing to
             # point at. Selecting it for a column that was found used to drop
@@ -476,11 +458,10 @@ def _select_columns(
         # identifier — a column can score well and still hold the wrong thing.
         preview = identifier or (str(detected_id) if detected_id else None)
         if preview is not None:
-            filled = [read_text_cell(cell) for cell in raw_df[preview]]
-            non_empty = [value for value in filled if value]
-            sample = ", ".join(non_empty[:3])
+            filled, samples = identifier_summary(raw_df, preview)
+            sample = ", ".join(samples)
             st.caption(
-                f"Account Name will use **{preview}** — {len(non_empty)}/"
+                f"Account Name will use **{preview}** — {filled}/"
                 f"{len(raw_df)} rows have a value"
                 f"{f' (e.g. {sample})' if sample else ''}"
             )
@@ -490,20 +471,13 @@ def _select_columns(
                 "blank for every row unless you pick one.]"
             )
 
-        # Detection warnings describe guesses that are still standing, so
-        # recompute them against whatever the user corrected — a column they
-        # have already fixed should not keep warning about the original guess.
-        corrected = {
-            field: column
-            for field, column in chosen.items()
-            if column != detected.get(field)
-        }
-        _, live_warnings = resolve_input_columns(raw_df.columns, corrected)
-        for warning in live_warnings:
+        # Detection warnings describe guesses that are still standing, so they
+        # are recomputed against whatever the user corrected.
+        for warning in mapping_warnings(raw_df.columns, chosen, detected):
             st.caption(f":orange[{warning}]")
 
     still_missing = [
-        label for field, label in _MAPPABLE_FIELDS if field not in chosen
+        label for field, label in MAPPABLE_FIELDS if field not in chosen
     ]
     if still_missing:
         st.error(
@@ -516,14 +490,11 @@ def _select_columns(
 
 def _preview_remark(df: pd.DataFrame, config: Settings) -> None:
     """Show the Remark the first row will actually get, before anything downloads."""
-    if df.empty:
+    remark, readable = remark_preview(df, config)
+    if remark is None:
         return
-    result = build_remark(df.iloc[0], remark_context(df, config))
-    if not result.remark:
-        return
-    readable = parse_case_remark(result.remark)[1] is None
     st.caption(
-        f"Remark preview (row 1): `{result.remark}`"
+        f"Remark preview (row 1): `{remark}`"
         + ("" if readable else " — not a case reference the statement report can read")
     )
 
@@ -736,18 +707,10 @@ def render_transform_page(defaults: Settings, country_prefix: str, amount_thresh
     )
 
 
-def _download_name(statement_files: Sequence[Any], suffix: str, fallback: str) -> str:
-    """Name the download after the statement when there is only one of them."""
-    if len(statement_files) == 1:
-        return Path(statement_files[0].name).stem + suffix
-    return fallback
-
-
 def _download_report(report: StatementReport, statement_files: Sequence[Any]) -> None:
     """Offer the two workbooks: the project leads' report, and the finance sheet."""
     report_column, finance_column = st.columns(2)
-    # Both are filed by case, so they are named after the Remark when they can be.
-    stem = remark_file_stem(report)
+    names = [f.name for f in statement_files]
 
     with report_column:
         sheets = "Successful and Unsuccessful"
@@ -759,9 +722,7 @@ def _download_report(report: StatementReport, statement_files: Sequence[Any]) ->
             type="primary",
             width="stretch",
             data=write_statement_workbook(report).getvalue(),
-            file_name=f"{stem}_report.xlsx" if stem else _download_name(
-                statement_files, "_report.xlsx", "statement_report.xlsx"
-            ),
+            file_name=statement_download_name(report, names, "report"),
             mime=XLSX_MIME,
         )
         st.caption(f"For project leads: {sheets} — each sheet totalled at the bottom.")
@@ -773,9 +734,7 @@ def _download_report(report: StatementReport, statement_files: Sequence[Any]) ->
             type="primary",
             width="stretch",
             data=write_finance_workbook(report).getvalue(),
-            file_name=f"{stem}.xlsx" if stem else _download_name(
-                statement_files, "_finance.xlsx", "finance_reconciliation.xlsx"
-            ),
+            file_name=statement_download_name(report, names, "finance"),
             mime=XLSX_MIME,
         )
         st.caption(

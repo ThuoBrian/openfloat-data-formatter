@@ -126,15 +126,33 @@ development.
 
 | Endpoint | Method | Purpose |
 | --- | --- | --- |
+| `/preview` | POST | Column mapping, validation report and output row count for an upload, as JSON |
 | `/transform` | POST | Upload a Process Maker export and get the OpenFloat `.xlsx` back (422 if every row was left out) |
 | `/validate` | POST | Validation report only, no output file |
+| `/rejected-rows` | POST | The rows that would be left out, in the file's own columns, as `.xlsx` |
 | `/statement-report` | POST | Analyse one or more OpenFloat Transaction Statements, optionally reconciled against the original input |
+| `/statement-report/workbook` | POST | The same inputs; `?kind=report` or `?kind=finance` returns that `.xlsx` |
+| `/settings` | GET | The defaults the app's controls start from (built-in values plus `.env`) |
+| `/shutdown` | POST | Stops the server |
 | `/health` | GET | Confirms the server is running |
 
-`/transform` and `/validate` take two optional form fields.
-`account_name_column` names the input column that becomes `Account Name`; leave
-it out and the column is detected from the headers. `project_code` completes a
-short `C#<case>` reference into the full Remark.
+**Every POST needs the header `X-OpenFloat-Client: 1`**, and the server only
+answers requests addressed to `127.0.0.1` or `localhost`. Both stop other web
+pages open in your browser from posting files to it. In `/docs`, fill in the
+`x-openfloat-client` field with `1`.
+
+The endpoints that take a Process Maker file accept these optional form fields:
+
+- `account_name_column`: the input column that becomes `Account Name`. Leave it
+  out to detect the column from the headers.
+- `project_code`: completes a short `C#<case>` reference into the full Remark.
+- `column_overrides`: a JSON object pointing a field at a column detection
+  missed, e.g. `{"amount": "Payout"}`.
+- `country_prefix` and `max_amount_threshold`: leave them out to use `.env`.
+
+The statement endpoints accept `country_prefix` too. The full contract is in
+[docs/openapi.json](docs/openapi.json); after changing the API, regenerate it
+with `just openapi` (a test fails until you do).
 
 ### Configuration
 
@@ -170,7 +188,7 @@ tests/                     pytest suite
 docs/                      reference data (OpenFloat template, fillable input
                            template) and GOTCHA.md dev notes
 scripts/                   maintenance scripts: the input-template and icon
-                           generators
+                           generators, and the OpenAPI export
 install/                   the one-line installer, the shortcut script and
                            the app icon
 .streamlit/config.toml     app theme and settings (no usage statistics,
