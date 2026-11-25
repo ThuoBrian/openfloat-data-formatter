@@ -8,6 +8,29 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **The HTTP API covers everything the app does**, groundwork for a React
+  front end that will replace Streamlit. New endpoints: `/preview` (column
+  mapping, Remark preview, validation and row count in one call),
+  `/rejected-rows`, `/statement-report/workbook?kind=report|finance`,
+  `/settings` and `/shutdown`. File endpoints now take `column_overrides`,
+  `country_prefix` and `max_amount_threshold`. The schema is committed as
+  `docs/openapi.json`, and a test keeps it current.
+- **`openfloat` launcher** (`uv run openfloat`, `just app`): serves the built
+  React page and the API on 127.0.0.1:8765, opens the browser once the server
+  is listening, and exits with code 0 when the app is closed. Started a second
+  time, it opens the copy already running. A bad `.env` value gets a plain
+  message instead of a traceback.
+- **The API serves the built page** at `/`, with a Content-Security-Policy
+  that only lets it talk to this server, so the browser itself enforces that
+  nothing leaves the computer. CI rebuilds the committed page and the
+  generated API types and fails when either is stale.
+- **React front end** (`frontend/`, not yet what staff use). Both pages work
+  end to end against the local API. "Prepare an OpenFloat upload": upload,
+  column mapping, project code, problems and both downloads. "Check payment
+  results": one or more statements plus the optional Process Maker file,
+  failed payments first, both report downloads, per-file and per-case checks
+  and the reconciliation buckets. The sidebar settings and Close the app work
+  on both.
 - **Clear error when this app's own report is uploaded as a statement.** A
   Statement Report or Finance download fed back into Statement Report mode used
   to fail with a generic "no 'Transaction Statement' sheet" message. It now
@@ -73,6 +96,22 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **Less crowded pages.** Content is centred and uses the width of the window;
+  the download (with its figures) sits in a summary panel beside the steps
+  that stays in view. A loaded file shrinks to a one-line bar, the column
+  choices show as a short summary with the dropdowns behind **Change** (open
+  by themselves when a column is missing), the row preview is collapsed, and
+  the project code box appears only when rows have a short case reference.
+  The payment results page puts its two uploads side by side.
+- **The app is now a React page served by the `openfloat` launcher, replacing
+  Streamlit.** `run.bat` and the shortcut start it as before; it opens at
+  `http://127.0.0.1:8765` instead of `localhost:8501`. Both pages, the sidebar
+  settings and Close the app work as they did. Ctrl+C in the black window
+  stops it cleanly too.
+- **Every API POST now needs the `X-OpenFloat-Client: 1` header**, and the API
+  only answers requests addressed to `127.0.0.1` or `localhost`. Together these
+  stop other web pages in the same browser from posting files to it. Scripts
+  that call the API need to add the header.
 - **A `justfile` replaces `start.bat` and `start.sh`.** Developer commands are
   now `just ui`, `just api`, `just both`, `just test` and `just check` (the same
   lint, type-check and test gates CI runs). `just both` runs both servers in one
@@ -160,6 +199,12 @@ adheres to [Semantic Versioning](https://semver.org/).
   `sample_report_output/README.md`, and `CLAUDE.md`; removed the hardcoded
   test count. Added a proprietary License & use section and an HTTP API table
   to the README, a thin `AGENTS.md` for coding agents, and this changelog.
+
+### Removed
+
+- **Streamlit** and the Streamlit app (`ui/app.py`, `.streamlit/`). The next
+  update removes it from existing installs automatically. Pillow, which only
+  the icon script uses, is now a dev dependency.
 
 ## [0.1.0] — 2026-08-25
 

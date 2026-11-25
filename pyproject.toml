@@ -22,10 +22,13 @@ dependencies = [
     "python-multipart>=0.0.6",
     "pydantic>=2.5.0",
     "pydantic-settings>=2.1.0",
-    "streamlit>=1.50.0",
     "python-dotenv>=1.0.0",
     "xlrd>=2.0.1",
 ]
+
+[project.scripts]
+# Local app launcher (API on 127.0.0.1); see src/openfloat_formatter/serve.py.
+openfloat = "openfloat_formatter.serve:main"
 
 [project.urls]
 Homepage = "https://github.com/ThuoBrian/openfloat-data-formatter"
@@ -33,6 +36,8 @@ Repository = "https://github.com/ThuoBrian/openfloat-data-formatter"
 
 [dependency-groups]
 dev = [
+    # Only scripts/generate_icon.py draws with it; the app itself doesn't.
+    "pillow>=10.0.0",
     "pytest>=7.4.0",
     "httpx>=0.25.0",
     "ruff>=0.8.0",

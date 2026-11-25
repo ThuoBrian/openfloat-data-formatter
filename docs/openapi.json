@@ -1,0 +1,1700 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "OpenFloat Data Formatter",
+    "description": "Transform Process Maker airtime exports into OpenFloat-ready uploads.",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health Check",
+        "description": "Health check endpoint.",
+        "operationId": "health_check_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/settings": {
+      "get": {
+        "summary": "Ui Defaults",
+        "description": "The values the app's controls start from: built-in defaults plus .env.",
+        "operationId": "ui_defaults_settings_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UiDefaults"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/preview": {
+      "post": {
+        "summary": "Preview File",
+        "description": "Everything the Transform page shows for one file and one set of choices.\n\nStateless on purpose: the app posts the file again whenever a choice\nchanges, so nothing from an upload outlives its request.",
+        "operationId": "preview_file_preview_post",
+        "parameters": [
+          {
+            "name": "x-openfloat-client",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Openfloat-Client"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_preview_file_preview_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadCheck"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/validate": {
+      "post": {
+        "summary": "Validate File",
+        "description": "Validate a Process Maker CSV/Excel file without transforming it.\n\nReturns a JSON validation report with row counts, errors, and warnings.",
+        "operationId": "validate_file_validate_post",
+        "parameters": [
+          {
+            "name": "x-openfloat-client",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Openfloat-Client"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_validate_file_validate_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationReport"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/transform": {
+      "post": {
+        "summary": "Transform File",
+        "description": "Transform a Process Maker CSV/Excel file into an OpenFloat-ready Excel file.\n\nReturns the transformed .xlsx file as a binary download.",
+        "operationId": "transform_file_transform_post",
+        "parameters": [
+          {
+            "name": "x-openfloat-client",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Openfloat-Client"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_transform_file_transform_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rejected-rows": {
+      "post": {
+        "summary": "Rejected Rows",
+        "description": "The rows that will be left out, in the file's own columns, with the reason.\n\nThis is what goes back to whoever compiled the export, so it carries their\nheaders rather than the canonical ones.",
+        "operationId": "rejected_rows_rejected_rows_post",
+        "parameters": [
+          {
+            "name": "x-openfloat-client",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Openfloat-Client"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_rejected_rows_rejected_rows_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/statement-report": {
+      "post": {
+        "summary": "Statement Report",
+        "description": "Report on successful vs unsuccessful OpenFloat disbursements.\n\nAccepts one or more 'Transaction Statement' exports plus an optional\nProcess Maker input (enables reconciliation). Statement files are parsed\nin memory; a statement with structural problems lands in `errors` and\ndoes not fail the request — only a request where nothing parses is\nuseless, and even then the response is a valid (empty) report.\n\nJSON shape note: `remark_parts` serializes as a positional array\n(`[case_number, project_code, amount, activity_code]`) because\n`CaseRemarkParts` is a NamedTuple.",
+        "operationId": "statement_report_statement_report_post",
+        "parameters": [
+          {
+            "name": "x-openfloat-client",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Openfloat-Client"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_statement_report_statement_report_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatementReport"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/statement-report/workbook": {
+      "post": {
+        "summary": "Statement Workbook",
+        "description": "Download the project leads' report (`kind=report`) or the finance sheet.",
+        "operationId": "statement_workbook_statement_report_workbook_post",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": [
+                "report",
+                "finance"
+              ],
+              "type": "string",
+              "title": "Kind"
+            }
+          },
+          {
+            "name": "x-openfloat-client",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Openfloat-Client"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_statement_workbook_statement_report_workbook_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/shutdown": {
+      "post": {
+        "summary": "Shutdown",
+        "description": "Stop the app. Replies first, so the page can say it has closed.",
+        "operationId": "shutdown_shutdown_post",
+        "parameters": [
+          {
+            "name": "x-openfloat-client",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Openfloat-Client"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Shutdown Shutdown Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Body_preview_file_preview_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          },
+          "account_name_column": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Name Column",
+            "description": "Column feeding 'Account Name'. Omit to detect it from the headers."
+          },
+          "project_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Code",
+            "description": "Completes a short 'C#<case>' reference into the full Remark."
+          },
+          "column_overrides": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Column Overrides",
+            "description": "JSON object, canonical field → column, e.g. {\"amount\": \"Amount KES\"}."
+          },
+          "country_prefix": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country Prefix",
+            "description": "1-3 digits. Omit for the .env value."
+          },
+          "max_amount_threshold": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Amount Threshold",
+            "description": "Warn above this many KES. Omit for .env."
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_preview_file_preview_post"
+      },
+      "Body_rejected_rows_rejected_rows_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          },
+          "account_name_column": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Name Column",
+            "description": "Column feeding 'Account Name'. Omit to detect it from the headers."
+          },
+          "project_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Code",
+            "description": "Completes a short 'C#<case>' reference into the full Remark."
+          },
+          "column_overrides": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Column Overrides",
+            "description": "JSON object, canonical field → column, e.g. {\"amount\": \"Amount KES\"}."
+          },
+          "country_prefix": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country Prefix",
+            "description": "1-3 digits. Omit for the .env value."
+          },
+          "max_amount_threshold": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Amount Threshold",
+            "description": "Warn above this many KES. Omit for .env."
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_rejected_rows_rejected_rows_post"
+      },
+      "Body_statement_report_statement_report_post": {
+        "properties": {
+          "statement_files": {
+            "items": {
+              "type": "string",
+              "contentMediaType": "application/octet-stream"
+            },
+            "type": "array",
+            "title": "Statement Files"
+          },
+          "input_file": {
+            "anyOf": [
+              {
+                "type": "string",
+                "contentMediaType": "application/octet-stream"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input File"
+          },
+          "country_prefix": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country Prefix",
+            "description": "1-3 digits. Omit for the .env value."
+          }
+        },
+        "type": "object",
+        "required": [
+          "statement_files"
+        ],
+        "title": "Body_statement_report_statement_report_post"
+      },
+      "Body_statement_workbook_statement_report_workbook_post": {
+        "properties": {
+          "statement_files": {
+            "items": {
+              "type": "string",
+              "contentMediaType": "application/octet-stream"
+            },
+            "type": "array",
+            "title": "Statement Files"
+          },
+          "input_file": {
+            "anyOf": [
+              {
+                "type": "string",
+                "contentMediaType": "application/octet-stream"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input File"
+          },
+          "country_prefix": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country Prefix",
+            "description": "1-3 digits. Omit for the .env value."
+          }
+        },
+        "type": "object",
+        "required": [
+          "statement_files"
+        ],
+        "title": "Body_statement_workbook_statement_report_workbook_post"
+      },
+      "Body_transform_file_transform_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          },
+          "account_name_column": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Name Column",
+            "description": "Column feeding 'Account Name'. Omit to detect it from the headers."
+          },
+          "project_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Code",
+            "description": "Completes a short 'C#<case>' reference into the full Remark."
+          },
+          "column_overrides": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Column Overrides",
+            "description": "JSON object, canonical field → column, e.g. {\"amount\": \"Amount KES\"}."
+          },
+          "country_prefix": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country Prefix",
+            "description": "1-3 digits. Omit for the .env value."
+          },
+          "max_amount_threshold": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Amount Threshold",
+            "description": "Warn above this many KES. Omit for .env."
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_transform_file_transform_post"
+      },
+      "Body_validate_file_validate_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          },
+          "account_name_column": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Name Column",
+            "description": "Column feeding 'Account Name'. Omit to detect it from the headers."
+          },
+          "project_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Code",
+            "description": "Completes a short 'C#<case>' reference into the full Remark."
+          },
+          "column_overrides": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Column Overrides",
+            "description": "JSON object, canonical field → column, e.g. {\"amount\": \"Amount KES\"}."
+          },
+          "country_prefix": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country Prefix",
+            "description": "1-3 digits. Omit for the .env value."
+          },
+          "max_amount_threshold": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Amount Threshold",
+            "description": "Warn above this many KES. Omit for .env."
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_validate_file_validate_post"
+      },
+      "CaseRemarkParts": {
+        "prefixItems": [
+          {
+            "type": "string",
+            "title": "Case Number"
+          },
+          {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Code"
+          },
+          {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount"
+          },
+          {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activity Code"
+          }
+        ],
+        "type": "array",
+        "maxItems": 4,
+        "minItems": 1
+      },
+      "CaseRollup": {
+        "properties": {
+          "case_number": {
+            "type": "string",
+            "title": "Case Number"
+          },
+          "project_code": {
+            "type": "string",
+            "title": "Project Code",
+            "default": ""
+          },
+          "activity_code": {
+            "type": "string",
+            "title": "Activity Code",
+            "default": ""
+          },
+          "remark_amount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remark Amount"
+          },
+          "total_rows": {
+            "type": "integer",
+            "title": "Total Rows",
+            "default": 0
+          },
+          "successful_count": {
+            "type": "integer",
+            "title": "Successful Count",
+            "default": 0
+          },
+          "unsuccessful_count": {
+            "type": "integer",
+            "title": "Unsuccessful Count",
+            "default": 0
+          },
+          "disbursed_total": {
+            "type": "number",
+            "title": "Disbursed Total",
+            "default": 0.0
+          },
+          "difference": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Difference"
+          }
+        },
+        "type": "object",
+        "required": [
+          "case_number"
+        ],
+        "title": "CaseRollup",
+        "description": "Per-case aggregation keyed by the parsed case_remark in the Remark column.\n\nThe amount embedded in the remark (`AIRTIME-KSH<amount>`) is the per-case\ntotal, so `difference` (disbursed_total - remark_amount) is the meaningful\nshortfall/overage flag, not a per-row comparison.\n\nA remark typed in the short `C#<case_number>` form carries no amount,\nproject code or activity code, so `remark_amount` and `difference` are None\nfor those cases: the rows still roll up and total, there is simply nothing\nto compare the disbursed figure against."
+      },
+      "FilteredCounts": {
+        "properties": {
+          "invalid_phone": {
+            "type": "integer",
+            "title": "Invalid Phone",
+            "default": 0
+          },
+          "invalid_amount": {
+            "type": "integer",
+            "title": "Invalid Amount",
+            "default": 0
+          },
+          "unmapped_network": {
+            "type": "integer",
+            "title": "Unmapped Network",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "FilteredCounts",
+        "description": "Count of rows filtered out by each validation rule."
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "IssueSeverity": {
+        "type": "string",
+        "enum": [
+          "error",
+          "warning"
+        ],
+        "title": "IssueSeverity",
+        "description": "Severity of a validation issue."
+      },
+      "ReconciliationEntry": {
+        "properties": {
+          "phone": {
+            "type": "string",
+            "title": "Phone"
+          },
+          "unique_id": {
+            "type": "string",
+            "title": "Unique Id",
+            "default": ""
+          },
+          "input_amount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Amount"
+          },
+          "input_row_numbers": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Input Row Numbers"
+          },
+          "successful_count": {
+            "type": "integer",
+            "title": "Successful Count",
+            "default": 0
+          },
+          "unsuccessful_count": {
+            "type": "integer",
+            "title": "Unsuccessful Count",
+            "default": 0
+          },
+          "successful_total": {
+            "type": "number",
+            "title": "Successful Total",
+            "default": 0.0
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Notes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "phone"
+        ],
+        "title": "ReconciliationEntry",
+        "description": "One beneficiary's reconciliation outcome (or a statement-only phone)."
+      },
+      "ReconciliationResult": {
+        "properties": {
+          "input_rows": {
+            "type": "integer",
+            "title": "Input Rows",
+            "default": 0
+          },
+          "matched_paid": {
+            "items": {
+              "$ref": "#/components/schemas/ReconciliationEntry"
+            },
+            "type": "array",
+            "title": "Matched Paid"
+          },
+          "matched_not_paid": {
+            "items": {
+              "$ref": "#/components/schemas/ReconciliationEntry"
+            },
+            "type": "array",
+            "title": "Matched Not Paid"
+          },
+          "missing_from_statement": {
+            "items": {
+              "$ref": "#/components/schemas/ReconciliationEntry"
+            },
+            "type": "array",
+            "title": "Missing From Statement"
+          },
+          "statement_not_in_input": {
+            "items": {
+              "$ref": "#/components/schemas/ReconciliationEntry"
+            },
+            "type": "array",
+            "title": "Statement Not In Input"
+          },
+          "duplicate_input_phones": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Duplicate Input Phones"
+          },
+          "multiply_paid_phones": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Multiply Paid Phones"
+          }
+        },
+        "type": "object",
+        "title": "ReconciliationResult",
+        "description": "Outcome of matching a Process Maker input against statement transactions."
+      },
+      "StatementFileSummary": {
+        "properties": {
+          "file_name": {
+            "type": "string",
+            "title": "File Name",
+            "default": ""
+          },
+          "total_rows": {
+            "type": "integer",
+            "title": "Total Rows",
+            "default": 0
+          },
+          "successful_count": {
+            "type": "integer",
+            "title": "Successful Count",
+            "default": 0
+          },
+          "unsuccessful_count": {
+            "type": "integer",
+            "title": "Unsuccessful Count",
+            "default": 0
+          },
+          "counts_by_status": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Counts By Status"
+          },
+          "total_disbursed": {
+            "type": "number",
+            "title": "Total Disbursed",
+            "default": 0.0
+          },
+          "footer_total": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Footer Total"
+          },
+          "footer_matches": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Footer Matches"
+          },
+          "success_rate": {
+            "type": "number",
+            "title": "Success Rate",
+            "default": 0.0
+          },
+          "unparsed_remarks": {
+            "type": "integer",
+            "title": "Unparsed Remarks",
+            "default": 0
+          },
+          "unparsed_dates": {
+            "type": "integer",
+            "title": "Unparsed Dates",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "StatementFileSummary",
+        "description": "Aggregate counts for one statement file (or the combined total)."
+      },
+      "StatementReport": {
+        "properties": {
+          "file_summaries": {
+            "items": {
+              "$ref": "#/components/schemas/StatementFileSummary"
+            },
+            "type": "array",
+            "title": "File Summaries"
+          },
+          "combined": {
+            "$ref": "#/components/schemas/StatementFileSummary"
+          },
+          "transactions": {
+            "items": {
+              "$ref": "#/components/schemas/StatementTransaction"
+            },
+            "type": "array",
+            "title": "Transactions"
+          },
+          "unsuccessful_transactions": {
+            "items": {
+              "$ref": "#/components/schemas/StatementTransaction"
+            },
+            "type": "array",
+            "title": "Unsuccessful Transactions"
+          },
+          "case_rollups": {
+            "items": {
+              "$ref": "#/components/schemas/CaseRollup"
+            },
+            "type": "array",
+            "title": "Case Rollups"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings"
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Errors"
+          },
+          "reconciliation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReconciliationResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "title": "StatementReport",
+        "description": "Complete statement report: summaries, rollups, and optional reconciliation."
+      },
+      "StatementTransaction": {
+        "properties": {
+          "file_name": {
+            "type": "string",
+            "title": "File Name",
+            "default": ""
+          },
+          "row_number": {
+            "type": "integer",
+            "title": "Row Number",
+            "default": 0
+          },
+          "approval_id": {
+            "type": "string",
+            "title": "Approval Id",
+            "default": ""
+          },
+          "transaction_id": {
+            "type": "string",
+            "title": "Transaction Id",
+            "default": ""
+          },
+          "transaction_type": {
+            "type": "string",
+            "title": "Transaction Type",
+            "default": ""
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "default": ""
+          },
+          "is_successful": {
+            "type": "boolean",
+            "title": "Is Successful",
+            "default": false
+          },
+          "date_raw": {
+            "type": "string",
+            "title": "Date Raw",
+            "default": ""
+          },
+          "date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date"
+          },
+          "account_name": {
+            "type": "string",
+            "title": "Account Name",
+            "default": ""
+          },
+          "account_number": {
+            "type": "string",
+            "title": "Account Number",
+            "default": ""
+          },
+          "account_number_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Number Error"
+          },
+          "account_type": {
+            "type": "string",
+            "title": "Account Type",
+            "default": ""
+          },
+          "remark": {
+            "type": "string",
+            "title": "Remark",
+            "default": ""
+          },
+          "remark_parts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CaseRemarkParts"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "initiated_by": {
+            "type": "string",
+            "title": "Initiated By",
+            "default": ""
+          },
+          "approved_rejected_by": {
+            "type": "string",
+            "title": "Approved Rejected By",
+            "default": ""
+          },
+          "reference_id": {
+            "type": "string",
+            "title": "Reference Id",
+            "default": ""
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount"
+          },
+          "commission_amount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Commission Amount"
+          },
+          "credit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Credit"
+          },
+          "balance_after": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Balance After"
+          }
+        },
+        "type": "object",
+        "title": "StatementTransaction",
+        "description": "One parsed row of an OpenFloat 'Transaction Statement' export."
+      },
+      "UiDefaults": {
+        "properties": {
+          "default_country_prefix": {
+            "type": "string",
+            "title": "Default Country Prefix"
+          },
+          "max_amount_threshold": {
+            "type": "integer",
+            "title": "Max Amount Threshold"
+          },
+          "project_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Code"
+          },
+          "account_name_column": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Name Column"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "default_country_prefix",
+          "max_amount_threshold",
+          "project_code",
+          "account_name_column",
+          "version"
+        ],
+        "title": "UiDefaults",
+        "description": "The settings the app's controls start from (built-in defaults plus .env)."
+      },
+      "UploadCheck": {
+        "properties": {
+          "preview": {
+            "$ref": "#/components/schemas/UploadPreview"
+          },
+          "report": {
+            "$ref": "#/components/schemas/ValidationReport"
+          },
+          "output_row_count": {
+            "type": "integer",
+            "title": "Output Row Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "preview",
+          "report",
+          "output_row_count"
+        ],
+        "title": "UploadCheck",
+        "description": "Preview, validation and row count for one upload: the whole Transform page."
+      },
+      "UploadPreview": {
+        "properties": {
+          "columns": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Columns"
+          },
+          "row_count": {
+            "type": "integer",
+            "title": "Row Count"
+          },
+          "detected": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Detected"
+          },
+          "mapping": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Mapping"
+          },
+          "missing_fields": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Missing Fields"
+          },
+          "mapping_warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Mapping Warnings"
+          },
+          "identifier_column": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Identifier Column"
+          },
+          "identifier_filled": {
+            "type": "integer",
+            "title": "Identifier Filled"
+          },
+          "identifier_samples": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Identifier Samples"
+          },
+          "preview_columns": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Preview Columns"
+          },
+          "preview_rows": {
+            "items": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "type": "array",
+            "title": "Preview Rows"
+          },
+          "short_form_rows": {
+            "type": "integer",
+            "title": "Short Form Rows"
+          },
+          "project_code_column": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Code Column"
+          },
+          "remark_preview": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remark Preview"
+          },
+          "remark_readable": {
+            "type": "boolean",
+            "title": "Remark Readable"
+          }
+        },
+        "type": "object",
+        "required": [
+          "columns",
+          "row_count",
+          "detected",
+          "mapping",
+          "missing_fields",
+          "mapping_warnings",
+          "identifier_column",
+          "identifier_filled",
+          "identifier_samples",
+          "preview_columns",
+          "preview_rows",
+          "short_form_rows",
+          "project_code_column",
+          "remark_preview",
+          "remark_readable"
+        ],
+        "title": "UploadPreview",
+        "description": "One input file as it will be read, given the user's column picks."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "ValidationIssue": {
+        "properties": {
+          "row_number": {
+            "type": "integer",
+            "title": "Row Number"
+          },
+          "severity": {
+            "$ref": "#/components/schemas/IssueSeverity"
+          },
+          "field": {
+            "type": "string",
+            "title": "Field"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "row_number",
+          "severity",
+          "field",
+          "message"
+        ],
+        "title": "ValidationIssue",
+        "description": "A single validation issue found in an input row."
+      },
+      "ValidationReport": {
+        "properties": {
+          "total_rows": {
+            "type": "integer",
+            "title": "Total Rows",
+            "default": 0
+          },
+          "valid_rows": {
+            "type": "integer",
+            "title": "Valid Rows",
+            "default": 0
+          },
+          "filtered_counts": {
+            "$ref": "#/components/schemas/FilteredCounts"
+          },
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationIssue"
+            },
+            "type": "array",
+            "title": "Errors"
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationIssue"
+            },
+            "type": "array",
+            "title": "Warnings"
+          }
+        },
+        "type": "object",
+        "title": "ValidationReport",
+        "description": "Complete validation report for an input file."
+      }
+    }
+  }
+}

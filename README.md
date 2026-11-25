@@ -102,15 +102,40 @@ Run `just` on its own to see every recipe.
 ```bash
 just sync     # first-time setup; re-run after dependency changes
 
-just ui       # Streamlit UI at http://localhost:8501
+just app      # the app as staff get it, at http://127.0.0.1:8765
 just api      # FastAPI server, docs at http://localhost:8000/docs
-just both     # both in one terminal; Ctrl+C stops both
 
 just test     # test suite; extra args pass through (just test -k test_phone)
 just check    # lint, type-check and tests, the same checks CI runs
 
 just shortcut # Desktop + Start menu shortcut that launches this checkout
 ```
+
+### The page (React)
+
+The page is a React app in `frontend/`. It talks only to the HTTP API on
+`127.0.0.1`, so the app works offline. `run.bat` starts the `openfloat`
+launcher (`src/openfloat_formatter/serve.py`), which serves the built page and
+the API on `http://127.0.0.1:8765` and opens the browser; `just app` runs the
+same thing from a checkout.
+
+The built page is committed in `src/openfloat_formatter/web/`, because staff
+install from GitHub's zip and never run Node. After changing anything in
+`frontend/`, run `just web-build` and commit the result; CI rebuilds it and
+fails if the committed copy is stale. Working on it needs
+Node 20.19 or newer (see `frontend/.nvmrc`); staff machines never need Node.
+
+```bash
+npm --prefix frontend install   # once, and after package.json changes
+just web-both                   # API on :8000 + page on http://127.0.0.1:5173
+just web-check                  # type-check, tests and production build
+just web-build                  # rebuild the committed page after a change
+just app                        # the launcher: built page + API, opens the browser
+just openapi                    # after an API change: schema + TypeScript types
+```
+
+Colours, type, spacing and radii come from `frontend/src/styles/tokens.css`;
+components use those tokens rather than raw values.
 
 If you don't have just, each recipe in the `justfile` is a thin `uv run ...`
 wrapper you can run directly.
@@ -126,15 +151,33 @@ development.
 
 | Endpoint | Method | Purpose |
 | --- | --- | --- |
+| `/preview` | POST | Column mapping, validation report and output row count for an upload, as JSON |
 | `/transform` | POST | Upload a Process Maker export and get the OpenFloat `.xlsx` back (422 if every row was left out) |
 | `/validate` | POST | Validation report only, no output file |
+| `/rejected-rows` | POST | The rows that would be left out, in the file's own columns, as `.xlsx` |
 | `/statement-report` | POST | Analyse one or more OpenFloat Transaction Statements, optionally reconciled against the original input |
+| `/statement-report/workbook` | POST | The same inputs; `?kind=report` or `?kind=finance` returns that `.xlsx` |
+| `/settings` | GET | The defaults the app's controls start from (built-in values plus `.env`) |
+| `/shutdown` | POST | Stops the server |
 | `/health` | GET | Confirms the server is running |
 
-`/transform` and `/validate` take two optional form fields.
-`account_name_column` names the input column that becomes `Account Name`; leave
-it out and the column is detected from the headers. `project_code` completes a
-short `C#<case>` reference into the full Remark.
+**Every POST needs the header `X-OpenFloat-Client: 1`**, and the server only
+answers requests addressed to `127.0.0.1` or `localhost`. Both stop other web
+pages open in your browser from posting files to it. In `/docs`, fill in the
+`x-openfloat-client` field with `1`.
+
+The endpoints that take a Process Maker file accept these optional form fields:
+
+- `account_name_column`: the input column that becomes `Account Name`. Leave it
+  out to detect the column from the headers.
+- `project_code`: completes a short `C#<case>` reference into the full Remark.
+- `column_overrides`: a JSON object pointing a field at a column detection
+  missed, e.g. `{"amount": "Payout"}`.
+- `country_prefix` and `max_amount_threshold`: leave them out to use `.env`.
+
+The statement endpoints accept `country_prefix` too. The full contract is in
+[docs/openapi.json](docs/openapi.json); after changing the API, regenerate it
+with `just openapi` (a test fails until you do).
 
 ### Configuration
 
@@ -165,16 +208,17 @@ The full `Settings` model is in `src/openfloat_formatter/config.py`.
 ```text
 src/openfloat_formatter/   the Python package: validation, normalization,
                            mapping, Excel output, statement reports, the
-                           FastAPI app, and the Streamlit UI (ui/app.py)
+                           FastAPI app, the launcher (serve.py), and the
+                           built page (web/)
+frontend/                  the page's source: React + TypeScript (Vite;
+                           tests run with Vitest)
 tests/                     pytest suite
 docs/                      reference data (OpenFloat template, fillable input
                            template) and GOTCHA.md dev notes
 scripts/                   maintenance scripts: the input-template and icon
-                           generators
+                           generators, and the OpenAPI export
 install/                   the one-line installer, the shortcut script and
                            the app icon
-.streamlit/config.toml     app theme and settings (no usage statistics,
-                           20 MB upload limit)
 run.bat                    what the shortcut launches: sets up the
                            environment, then starts the app
 justfile                   developer commands (run `just` to list them)
@@ -182,7 +226,7 @@ justfile                   developer commands (run `just` to list them)
 
 ### Stack
 
-Python 3.11+ · Pandas · OpenPyXL · FastAPI · Pydantic v2 · Streamlit
+Python 3.11+ · Pandas · OpenPyXL · FastAPI · Pydantic v2 · React · TypeScript · Vite
 
 ## Changelog
 

@@ -42,8 +42,8 @@ just check   # ruff + mypy + pytest
 ```
 
 <!-- (Set up first with `just sync` if you haven't. Paste relevant
-output below, or describe manual verification — e.g. ran through the Streamlit
-UI, sample file used.) -->
+output below, or describe manual verification — e.g. ran through the app with
+`just app`, sample file used. Front-end changes: also `just web-check`.) -->
 
 - [ ] Added/updated tests for this change
 - [ ] `ruff check`, `mypy`, and all tests pass locally

@@ -43,7 +43,8 @@ anywhere remote.
    packages). You'll see progress messages in the black window.
 4. Once ready, your browser will open automatically to a page titled
    "OpenFloat Data Formatter". If it doesn't open on its own, go to
-   `http://localhost:8501` in your browser.
+   `http://127.0.0.1:8765` in your browser. Opening the shortcut again while
+   the app is running just opens the page again.
 5. Every run after the first takes just a few seconds.
 6. **To stop the app**, click **Close the app** at the bottom of the sidebar
    and confirm. The black window closes by itself; then close the browser

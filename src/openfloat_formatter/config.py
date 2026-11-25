@@ -233,7 +233,8 @@ class Settings(BaseSettings):
 
 
 # No module-level `Settings()` instance on purpose: importing this module must
-# not read .env, or a bad value there crashes every importer — the Streamlit
+# not read .env, or a bad value there crashes every importer, the launcher
 # app included — with a raw traceback before it can explain the problem.
 # Build one where it is used: main.py does at startup, the app per run
-# (ui/app.py::_load_defaults), and the pipeline when no config is passed.
+# (serve.py turns that failure into a sentence), and the pipeline when no
+# config is passed.

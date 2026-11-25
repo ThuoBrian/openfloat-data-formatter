@@ -56,7 +56,7 @@ def transform_frame(
     3. Write the output Excel file
 
     Separate from `transform` so a caller holding a frame can hand over the
-    one it is actually showing. The Streamlit app resolves columns against the
+    one it is actually showing. The API resolves columns against the
     user's own picks before anything reads the frame; re-reading the file here
     would canonicalize it a second time with detection only, and quietly build
     the upload from a mapping the user had already corrected on screen.

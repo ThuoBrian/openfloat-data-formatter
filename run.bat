@@ -40,9 +40,11 @@ if !errorlevel! neq 0 (
 :: ── 3. Launch the app ─────────────────────────────────────────────────────────
 echo.
 echo Starting app. A browser tab will open shortly.
-echo Close this window to stop it.
+echo To stop it, click "Close the app" on the page, or close this window.
 echo.
-"%APPDIR%\.venv\Scripts\streamlit.exe" run "%APPDIR%\src\openfloat_formatter\ui\app.py" --server.address=127.0.0.1
+:: The launcher serves the page and its API on 127.0.0.1 only, opens the
+:: browser, and exits with code 0 when the page's "Close the app" is used.
+"%APPDIR%\.venv\Scripts\openfloat.exe"
 
 if errorlevel 1 (
     echo.

@@ -5,10 +5,11 @@ gets turned into another file". Drawn at 1024 px and scaled down, which is what
 keeps the edges smooth; the .ico carries every size Windows asks for, from the
 16 px taskbar/list view to the 256 px large-icons view.
 
-Run after changing the design (Pillow comes with Streamlit, so nothing extra
-to install):
+Run after changing the design (Pillow is a dev dependency), then rebuild the
+page so the new PNG reaches src/openfloat_formatter/web:
 
     uv run python scripts/generate_icon.py
+    npm --prefix frontend run build
 """
 
 from pathlib import Path
@@ -17,13 +18,13 @@ from PIL import Image, ImageDraw
 
 ROOT = Path(__file__).resolve().parent.parent
 ICO_PATH = ROOT / "install" / "openfloat.ico"
-PNG_PATH = ROOT / "src" / "openfloat_formatter" / "ui" / "icon.png"
+PNG_PATH = ROOT / "frontend" / "public" / "icon.png"
 
 CANVAS = 1024
 ICO_SIZES = [(16, 16), (20, 20), (24, 24), (32, 32), (40, 40), (48, 48), (64, 64),
              (128, 128), (256, 256)]
 
-# Same palette as the app's dark theme (.streamlit/config.toml).
+# Same palette as the app's dark theme (frontend/src/styles/tokens.css).
 TILE_TOP = (59, 130, 246)  # blue 500
 TILE_BOTTOM = (29, 78, 216)  # blue 700
 SHEET = (255, 255, 255)

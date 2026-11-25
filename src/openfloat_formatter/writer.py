@@ -28,7 +28,7 @@ import re
 from collections.abc import Callable, Sequence
 from io import BytesIO
 from pathlib import Path
-from typing import overload
+from typing import Literal, overload
 
 import openpyxl
 import pandas as pd
@@ -491,6 +491,34 @@ def remark_file_stem(report: StatementReport) -> str | None:
         stem = "_".join(cases)
     stem = _UNSAFE_FILE_NAME_CHARS.sub("_", stem)[:_MAX_FILE_STEM].rstrip(" .")
     return stem or None
+
+
+StatementWorkbook = Literal["report", "finance"]
+
+# Per kind: (suffix after the Remark stem, suffix after a lone statement's
+# name, name when there are several statements and no usable Remark).
+_STATEMENT_DOWNLOAD_NAMES: dict[str, tuple[str, str, str]] = {
+    "report": ("_report.xlsx", "_report.xlsx", "statement_report.xlsx"),
+    "finance": (".xlsx", "_finance.xlsx", "finance_reconciliation.xlsx"),
+}
+
+
+def statement_download_name(
+    report: StatementReport, source_names: Sequence[str], kind: StatementWorkbook
+) -> str:
+    """File name for a statement download, shared by every UI so they agree.
+
+    Both workbooks are filed by case, so they are named after the Remark when
+    `remark_file_stem` finds one; otherwise after the statement when there is
+    only one, and a fixed name when there are several.
+    """
+    stem_suffix, file_suffix, fallback = _STATEMENT_DOWNLOAD_NAMES[kind]
+    stem = remark_file_stem(report)
+    if stem:
+        return stem + stem_suffix
+    if len(source_names) == 1:
+        return Path(source_names[0]).stem + file_suffix
+    return fallback
 
 
 def write_finance_workbook(report: StatementReport) -> BytesIO:
