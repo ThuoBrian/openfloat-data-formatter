@@ -2,10 +2,10 @@
 #
 # Staff don't use this — they double-click run.bat (see GUIDE.md).
 #
-# Both servers bind to 127.0.0.1. Uploads and reports here carry names, phone
-# numbers and staff IDs, and the API has no authentication — Streamlit and
-# uvicorn bind all interfaces by default, which on shared Wi-Fi puts that on
-# the network. The --server.address/--host flags are load-bearing.
+# Every server here binds to 127.0.0.1. Uploads and reports carry names, phone
+# numbers and staff IDs, and the API has no authentication. uvicorn and Vite
+# bind wider unless told otherwise, which on shared Wi-Fi puts that on the
+# network, so the --host flag and Vite's server.host are load-bearing.
 
 set windows-shell := ["powershell.exe", "-NoLogo", "-NoProfile", "-Command"]
 
@@ -17,12 +17,9 @@ default:
 sync:
     uv sync --python 3.12
 
-# The leading `-` on ui/api ignores the exit code: closing the terminal or
-# Ctrl+C kills the server, which just would otherwise report as "recipe failed".
-
-# Streamlit UI on http://localhost:8501
-ui:
-    -uv run streamlit run src/openfloat_formatter/ui/app.py --server.port 8501 --server.address=127.0.0.1
+# The leading `-` on the server recipes ignores the exit code: closing the
+# terminal or Ctrl+C kills the server, which just would otherwise report as
+# "recipe failed".
 
 # Desktop + Start menu shortcut (with the app icon) that launches run.bat here
 shortcut:
@@ -32,15 +29,11 @@ shortcut:
 api:
     -uv run uvicorn openfloat_formatter.main:app --reload --host 127.0.0.1 --port 8000
 
-# The React app as staff will get it: the built page and the API on
-# http://127.0.0.1:8765, opening the browser (what run.bat will start once it
-# replaces Streamlit). Rebuild the page first with `just web-build`.
+# The app as staff get it (what run.bat starts): the built page and the API on
+# http://127.0.0.1:8765, opening the browser. After changing frontend/, run
+# `just web-build` first so the page you see is current.
 app:
     -uv run openfloat
-
-# API and UI together in this terminal; Ctrl+C stops both
-[parallel]
-both: api ui
 
 # Run pytest; extra arguments pass through (just test -k test_phone)
 test *args:

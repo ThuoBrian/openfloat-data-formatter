@@ -373,7 +373,7 @@ def resolve_input_columns(
     Args:
         columns: The input file's headers.
         overrides: Canonical field → the column the user picked for it, set
-            per upload by the Streamlit mapper. Matched exactly first, then by
+            per upload by the app's column mapping. Matched exactly first, then by
             `_header_key`. Naming a column the file lacks falls back to
             detection with a warning rather than failing the upload — the same
             contract `find_account_name_column` uses for a stale setting.
@@ -481,7 +481,7 @@ def canonicalize_input_columns(
     Returns:
         The renamed frame. A caller that also needs the mapping or the
         detection warnings calls `resolve_input_columns` itself — only the
-        Streamlit picker does, and it already has them for its dropdowns.
+        upload preview does (upload_preview.describe_upload).
     """
     mapping, _warnings = resolve_input_columns(df.columns, overrides)
     renames = {

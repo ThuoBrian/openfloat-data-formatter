@@ -81,3 +81,27 @@ class TestLauncher:
 
         assert exit_info.value.code == 1
         assert "settings file (.env" in capsys.readouterr().err
+
+    def test_ctrl_c_exits_cleanly(self, monkeypatch):
+        """uvicorn re-raises Ctrl+C as KeyboardInterrupt after a clean shutdown;
+        run.bat must not see that as a crash."""
+
+        class FakeServer:
+            started = True
+            should_exit = False
+
+            def __init__(self, _config):
+                pass
+
+            def run(self):
+                raise KeyboardInterrupt
+
+        # main() registers its shutdown hook on the real app; undo it afterwards
+        # so /shutdown tests elsewhere see no hook.
+        monkeypatch.setattr(app.state, "shutdown", None, raising=False)
+        monkeypatch.setattr(serve, "already_running", lambda: False)
+        monkeypatch.setattr(serve.uvicorn, "Server", FakeServer)
+        monkeypatch.setattr(serve.uvicorn, "Config", lambda *args, **kwargs: None)
+        monkeypatch.setattr(serve.webbrowser, "open", lambda url: None)
+
+        serve.main()  # returns normally: exit code 0

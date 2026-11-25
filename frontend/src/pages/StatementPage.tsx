@@ -1,7 +1,6 @@
 /**
  * "Check payment results": read OpenFloat's Transaction Statement(s), say who
  * was and wasn't paid, and optionally reconcile against the Process Maker file.
- * Mirrors ui/app.py::render_statement_report_page.
  *
  * Findings that need action (a failed payment, a total that disagrees, a case
  * paid more or less than its reference says) are shown in the open. Detail

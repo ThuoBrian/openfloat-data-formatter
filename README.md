@@ -102,9 +102,8 @@ Run `just` on its own to see every recipe.
 ```bash
 just sync     # first-time setup; re-run after dependency changes
 
-just ui       # Streamlit UI at http://localhost:8501
+just app      # the app as staff get it, at http://127.0.0.1:8765
 just api      # FastAPI server, docs at http://localhost:8000/docs
-just both     # both in one terminal; Ctrl+C stops both
 
 just test     # test suite; extra args pass through (just test -k test_phone)
 just check    # lint, type-check and tests, the same checks CI runs
@@ -112,13 +111,13 @@ just check    # lint, type-check and tests, the same checks CI runs
 just shortcut # Desktop + Start menu shortcut that launches this checkout
 ```
 
-### React front end (in progress)
+### The page (React)
 
-A React page in `frontend/` is replacing the Streamlit UI. It talks only to
-the HTTP API on `127.0.0.1`, so the app still works offline. Both pages are
-done, and `just app` runs it the way staff will get it: the `openfloat`
-launcher serves the built page and the API on `http://127.0.0.1:8765` and
-opens the browser. Staff keep using Streamlit until `run.bat` switches over.
+The page is a React app in `frontend/`. It talks only to the HTTP API on
+`127.0.0.1`, so the app works offline. `run.bat` starts the `openfloat`
+launcher (`src/openfloat_formatter/serve.py`), which serves the built page and
+the API on `http://127.0.0.1:8765` and opens the browser; `just app` runs the
+same thing from a checkout.
 
 The built page is committed in `src/openfloat_formatter/web/`, because staff
 install from GitHub's zip and never run Node. After changing anything in
@@ -209,9 +208,10 @@ The full `Settings` model is in `src/openfloat_formatter/config.py`.
 ```text
 src/openfloat_formatter/   the Python package: validation, normalization,
                            mapping, Excel output, statement reports, the
-                           FastAPI app, and the Streamlit UI (ui/app.py)
-frontend/                  the React page replacing Streamlit (Vite +
-                           TypeScript; tests run with Vitest)
+                           FastAPI app, the launcher (serve.py), and the
+                           built page (web/)
+frontend/                  the page's source: React + TypeScript (Vite;
+                           tests run with Vitest)
 tests/                     pytest suite
 docs/                      reference data (OpenFloat template, fillable input
                            template) and GOTCHA.md dev notes
@@ -219,8 +219,6 @@ scripts/                   maintenance scripts: the input-template and icon
                            generators, and the OpenAPI export
 install/                   the one-line installer, the shortcut script and
                            the app icon
-.streamlit/config.toml     app theme and settings (no usage statistics,
-                           20 MB upload limit)
 run.bat                    what the shortcut launches: sets up the
                            environment, then starts the app
 justfile                   developer commands (run `just` to list them)
@@ -228,7 +226,7 @@ justfile                   developer commands (run `just` to list them)
 
 ### Stack
 
-Python 3.11+ · Pandas · OpenPyXL · FastAPI · Pydantic v2 · Streamlit
+Python 3.11+ · Pandas · OpenPyXL · FastAPI · Pydantic v2 · React · TypeScript · Vite
 
 ## Changelog
 

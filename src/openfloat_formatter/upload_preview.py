@@ -2,8 +2,8 @@
 
 The staff UI shows these beside the column pickers: which column each field
 was read from, what the identifier column holds, and the Remark row 1 will
-get. They live here rather than in a UI so the Streamlit page and the HTTP
-API (and through it the React app) give the same answers while both exist.
+get. They live here, not in the page, so the answer is computed once, in
+Python, next to the pipeline that acts on it; POST /preview returns it.
 """
 
 from __future__ import annotations

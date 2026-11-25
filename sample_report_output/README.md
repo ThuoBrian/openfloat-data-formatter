@@ -2,8 +2,8 @@
 
 Where you put real **OpenFloat "Transaction Statement"** exports — the reports
 the OpenFloat SaaS produces *after* staff upload a disbursement batch. Drop them
-here to manually exercise the app's **Statement Report** mode (see
-`src/openfloat_formatter/ui/app.py` and `src/openfloat_formatter/statement.py`).
+here to manually exercise the app's **Check payment results** page (see
+`frontend/src/pages/StatementPage.tsx` and `src/openfloat_formatter/statement.py`).
 
 ## ⚠️ These files are NOT tracked by git
 

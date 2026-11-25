@@ -96,6 +96,11 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **The app is now a React page served by the `openfloat` launcher, replacing
+  Streamlit.** `run.bat` and the shortcut start it as before; it opens at
+  `http://127.0.0.1:8765` instead of `localhost:8501`. Both pages, the sidebar
+  settings and Close the app work as they did. Ctrl+C in the black window
+  stops it cleanly too.
 - **Every API POST now needs the `X-OpenFloat-Client: 1` header**, and the API
   only answers requests addressed to `127.0.0.1` or `localhost`. Together these
   stop other web pages in the same browser from posting files to it. Scripts
@@ -187,6 +192,12 @@ adheres to [Semantic Versioning](https://semver.org/).
   `sample_report_output/README.md`, and `CLAUDE.md`; removed the hardcoded
   test count. Added a proprietary License & use section and an HTTP API table
   to the README, a thin `AGENTS.md` for coding agents, and this changelog.
+
+### Removed
+
+- **Streamlit** and the Streamlit app (`ui/app.py`, `.streamlit/`). The next
+  update removes it from existing installs automatically. Pillow, which only
+  the icon script uses, is now a dev dependency.
 
 ## [0.1.0] — 2026-08-25
 

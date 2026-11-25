@@ -1,7 +1,7 @@
 """Run the app on this computer: the page and its API, on 127.0.0.1 only.
 
-This is what `run.bat` will launch once the React page replaces Streamlit.
-It exists, rather than a bare `uvicorn` command, for three things:
+This is what `run.bat` launches. It exists, rather than a bare `uvicorn`
+command, for four things:
 
 - "Close the app" stops the server with exit code 0. `main._shut_down`
   calls the hook registered here, and uvicorn returns normally instead of
@@ -9,6 +9,9 @@ It exists, rather than a bare `uvicorn` command, for three things:
 - The browser opens on the page once the server is actually listening.
 - Starting it twice (a double double-click) opens the copy that is already
   running instead of failing on a busy port.
+- Ctrl+C in the console window also exits 0. uvicorn stops cleanly on it but
+  then re-raises it as KeyboardInterrupt, which would leave run.bat paused on
+  "App exited with an error".
 
 Usage:
     uv run openfloat
@@ -28,8 +31,7 @@ from pydantic import ValidationError
 # 127.0.0.1, never 0.0.0.0: the API has no login, and uploads carry names,
 # phone numbers and staff IDs.
 HOST = "127.0.0.1"
-# Clear of Streamlit (8501) and `just api` (8000), so all three can run at once
-# during the side-by-side period.
+# Clear of `just api` (8000) and the Vite dev page (5173), so all can run at once.
 PORT = 8765
 URL = f"http://{HOST}:{PORT}/"
 
@@ -81,8 +83,11 @@ def main() -> None:
 
     app.state.shutdown = request_shutdown
     threading.Thread(target=_open_when_ready, args=(server,), daemon=True).start()
-    print(f"OpenFloat Data Formatter is running at {URL}")
-    server.run()
+    print(f"OpenFloat Data Formatter is running at {URL}", flush=True)
+    try:
+        server.run()
+    except KeyboardInterrupt:
+        return  # Ctrl+C: uvicorn has already shut down cleanly
     if not server.started:  # e.g. something else holds the port
         print(f"Could not start on {URL}: is another program using port {PORT}?", file=sys.stderr)
         raise SystemExit(1)

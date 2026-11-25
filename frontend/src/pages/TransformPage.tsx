@@ -1,6 +1,6 @@
 /**
  * "Prepare an OpenFloat upload": upload → check columns → fix problems →
- * download, as four numbered steps. Mirrors ui/app.py::render_transform_page.
+ * download, as four numbered steps.
  *
  * The file stays in the browser and is posted again whenever a choice
  * changes. The API keeps nothing between requests, so no upload outlives the

@@ -1,6 +1,6 @@
 /**
  * The page shell: header, the mode choice, the sidebar, and closing the app.
- * Mirrors ui/app.py::main.
+ * Wording is aimed at non-technical staff.
  */
 import { useEffect, useRef, useState } from "react";
 

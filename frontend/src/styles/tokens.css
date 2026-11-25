@@ -5,10 +5,10 @@
  *
  * Archetype: utilitarian corporate-clean, for a short task done by
  * non-technical staff. It carries over the slate-and-blue palette staff
- * already know from the Streamlit version (.streamlit/config.toml).
+ * already knew from the Streamlit version this replaced.
  *
- * Scheme: dark only, deliberately. The Streamlit theme fixed it rather than
- * following the OS so every laptop shows the same tool, and this keeps that.
+ * Scheme: dark only, deliberately: fixed rather than following the OS, so
+ * every laptop shows the same tool.
  * `color-scheme: dark` makes native controls (scrollbars, select popups,
  * file pickers) match.
  *
@@ -27,7 +27,7 @@
 :root {
   color-scheme: dark;
 
-  /* Colour. The hex in each comment is the Streamlit value it replaces. */
+  /* Colour. The hex in each comment is the original palette value. */
   --bg: oklch(20.8% 0.042 265.8); /* #0F172A */
   --bg-sunken: oklch(17.5% 0.03 265); /* #0B1120, sidebar */
   --surface: oklch(27.9% 0.041 260); /* #1E293B, panels, header band */
