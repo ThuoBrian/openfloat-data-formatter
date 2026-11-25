@@ -15,8 +15,15 @@ adheres to [Semantic Versioning](https://semver.org/).
   `/settings` and `/shutdown`. File endpoints now take `column_overrides`,
   `country_prefix` and `max_amount_threshold`. The schema is committed as
   `docs/openapi.json`, and a test keeps it current.
-- **`openfloat` launcher** (`uv run openfloat`, `just app`): runs the API on
-  127.0.0.1:8765 and exits with code 0 when the app is closed.
+- **`openfloat` launcher** (`uv run openfloat`, `just app`): serves the built
+  React page and the API on 127.0.0.1:8765, opens the browser once the server
+  is listening, and exits with code 0 when the app is closed. Started a second
+  time, it opens the copy already running. A bad `.env` value gets a plain
+  message instead of a traceback.
+- **The API serves the built page** at `/`, with a Content-Security-Policy
+  that only lets it talk to this server, so the browser itself enforces that
+  nothing leaves the computer. CI rebuilds the committed page and the
+  generated API types and fails when either is stale.
 - **React front end** (`frontend/`, not yet what staff use). Both pages work
   end to end against the local API. "Prepare an OpenFloat upload": upload,
   column mapping, project code, problems and both downloads. "Check payment

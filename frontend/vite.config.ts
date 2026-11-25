@@ -19,6 +19,13 @@ const API_PATHS = [
 
 export default defineConfig({
   plugins: [react()],
+  build: {
+    // Into the Python package, where FastAPI serves it from and where it is
+    // committed: staff install from GitHub's zip and never run Node, so the
+    // built page has to be in the repo. CI rebuilds it and fails on any diff.
+    outDir: "../src/openfloat_formatter/web",
+    emptyOutDir: true,
+  },
   server: {
     // 127.0.0.1, never all interfaces: the page handles files with personal data.
     host: "127.0.0.1",

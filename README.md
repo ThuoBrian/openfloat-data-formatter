@@ -116,14 +116,22 @@ just shortcut # Desktop + Start menu shortcut that launches this checkout
 
 A React page in `frontend/` is replacing the Streamlit UI. It talks only to
 the HTTP API on `127.0.0.1`, so the app still works offline. Both pages are
-done; staff keep using Streamlit until the page is served by the `openfloat`
-launcher and `run.bat` switches over. Working on it needs
+done, and `just app` runs it the way staff will get it: the `openfloat`
+launcher serves the built page and the API on `http://127.0.0.1:8765` and
+opens the browser. Staff keep using Streamlit until `run.bat` switches over.
+
+The built page is committed in `src/openfloat_formatter/web/`, because staff
+install from GitHub's zip and never run Node. After changing anything in
+`frontend/`, run `just web-build` and commit the result; CI rebuilds it and
+fails if the committed copy is stale. Working on it needs
 Node 20.19 or newer (see `frontend/.nvmrc`); staff machines never need Node.
 
 ```bash
 npm --prefix frontend install   # once, and after package.json changes
 just web-both                   # API on :8000 + page on http://127.0.0.1:5173
 just web-check                  # type-check, tests and production build
+just web-build                  # rebuild the committed page after a change
+just app                        # the launcher: built page + API, opens the browser
 just openapi                    # after an API change: schema + TypeScript types
 ```
 

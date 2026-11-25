@@ -32,8 +32,9 @@ shortcut:
 api:
     -uv run uvicorn openfloat_formatter.main:app --reload --host 127.0.0.1 --port 8000
 
-# The local app launcher on http://127.0.0.1:8765 (what run.bat will start once
-# the React page replaces Streamlit)
+# The React app as staff will get it: the built page and the API on
+# http://127.0.0.1:8765, opening the browser (what run.bat will start once it
+# replaces Streamlit). Rebuild the page first with `just web-build`.
 app:
     -uv run openfloat
 
@@ -70,6 +71,10 @@ web-dev:
 # API and the React dev page together; Ctrl+C stops both
 [parallel]
 web-both: api web-dev
+
+# Rebuild the page into src/openfloat_formatter/web (committed; CI fails if stale)
+web-build:
+    npm --prefix frontend run build
 
 # Front-end checks: type-check, tests, production build
 web-check:

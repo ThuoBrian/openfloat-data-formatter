@@ -19,6 +19,8 @@ Endpoints:
     POST /statement-report/workbook    - The same inputs, download the project leads'
                                          report (kind=report) or finance sheet (kind=finance)
     POST /shutdown                     - Stop the app
+    GET  /                             - The app's page (the built React front end in
+                                         web/), when it has been built
 
 Every POST requires the `X-OpenFloat-Client: 1` header (see `_require_client`).
 """
@@ -28,6 +30,7 @@ from __future__ import annotations
 import io
 import signal
 import threading
+from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Annotated, Any
 from urllib.parse import quote
@@ -35,8 +38,10 @@ from urllib.parse import quote
 import pandas as pd
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Query, UploadFile
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import TypeAdapter, ValidationError
+from starlette.requests import Request
 
 from . import app_version
 from .config import COUNTRY_PREFIX_PATTERN, INPUT_COLUMN_ALIASES, Settings
@@ -79,6 +84,41 @@ ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=ALLOWED_HOSTS)
 
 CLIENT_HEADER = "X-OpenFloat-Client"
+
+# The page may load and call only this server. It works offline and makes no
+# outside requests; this has the browser enforce that. Blob URLs are how the
+# page hands a downloaded workbook to the browser to save.
+CONTENT_SECURITY_POLICY = "; ".join(
+    [
+        "default-src 'self'",
+        "img-src 'self' data: blob:",
+        "object-src 'none'",
+        "base-uri 'none'",
+        "form-action 'none'",
+        "frame-ancestors 'none'",
+    ]
+)
+# FastAPI's interactive docs load Swagger UI from a CDN, so they're exempt.
+# They're a developer page that needs the internet anyway.
+_DOCS_PATHS = ("/docs", "/redoc", "/openapi.json")
+
+
+@app.middleware("http")
+async def _security_headers(
+    request: Request, call_next: Callable[[Request], Awaitable[Response]]
+) -> Response:
+    """Headers on every response: no sniffing, no referrer, the CSP, fresh HTML."""
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("Referrer-Policy", "no-referrer")
+    path = request.url.path
+    if not path.startswith(_DOCS_PATHS):
+        response.headers.setdefault("Content-Security-Policy", CONTENT_SECURITY_POLICY)
+    # index.html names the hashed asset files, so after an update the browser
+    # must fetch it again rather than reuse a copy pointing at old files.
+    if path == "/" or path.endswith(".html"):
+        response.headers["Cache-Control"] = "no-cache"
+    return response
 
 # Real exports are a few hundred KB; this only stops a runaway upload from
 # being parsed into memory.
@@ -448,3 +488,10 @@ async def _read_upload_bytes(file: UploadFile) -> bytes:
         )
     return content
 
+
+# The built React page (`npm --prefix frontend run build` writes it here).
+# Mounted last, at "/", so every API route above takes precedence. Skipped
+# when the page hasn't been built, so the API alone still runs.
+WEB_DIR = Path(__file__).with_name("web")
+if (WEB_DIR / "index.html").is_file():
+    app.mount("/", StaticFiles(directory=WEB_DIR, html=True), name="web")
