@@ -46,7 +46,10 @@
   --warning: oklch(87.9% 0.153 91.6); /* #FCD34D */
   --success: oklch(87.1% 0.15 154.4); /* #86EFAC */
   --info: var(--link);
-  --tint: 14%; /* status background = colour mixed into --bg at this share */
+  /* Status background = the colour mixed into --bg at this share. Mix tints
+     `in oklab`, never `in oklch`: OKLCH interpolates hue the short way, so
+     yellow mixed into this blue page comes out teal. */
+  --tint: 14%;
 
   /* Type: one family (two optical sizes), fluid scale with ratio 1.2. */
   --font-body: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;

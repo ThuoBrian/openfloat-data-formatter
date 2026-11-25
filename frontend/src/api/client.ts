@@ -13,6 +13,13 @@ export type UploadPreview = components["schemas"]["UploadPreview"];
 export type ValidationReport = components["schemas"]["ValidationReport"];
 export type ValidationIssue = components["schemas"]["ValidationIssue"];
 export type UiDefaults = components["schemas"]["UiDefaults"];
+export type StatementReport = components["schemas"]["StatementReport"];
+export type StatementTransaction = components["schemas"]["StatementTransaction"];
+export type StatementFileSummary = components["schemas"]["StatementFileSummary"];
+export type CaseRollup = components["schemas"]["CaseRollup"];
+export type ReconciliationEntry = components["schemas"]["ReconciliationEntry"];
+/** Which statement download: the project leads' report or the finance sheet. */
+export type StatementWorkbook = "report" | "finance";
 
 /** Every POST must carry this, or the API refuses it (see main.py). */
 export const CLIENT_HEADER = { "X-OpenFloat-Client": "1" } as const;
@@ -55,6 +62,15 @@ export function uploadForm(file: File, choices: UploadChoices): FormData {
   return form;
 }
 
+/** One or more Transaction Statements, plus the Process Maker file to reconcile against. */
+export function statementForm(statements: File[], input: File | null, countryPrefix: string): FormData {
+  const form = new FormData();
+  for (const statement of statements) form.append("statement_files", statement);
+  if (input) form.append("input_file", input);
+  form.append("country_prefix", countryPrefix);
+  return form;
+}
+
 async function errorFrom(response: Response): Promise<ApiError> {
   let detail = response.statusText || `HTTP ${response.status}`;
   try {
@@ -88,6 +104,14 @@ export async function getSettings(signal?: AbortSignal): Promise<UiDefaults> {
 
 export async function previewUpload(form: FormData, signal?: AbortSignal): Promise<UploadCheck> {
   return (await (await post("/preview", form, signal)).json()) as UploadCheck;
+}
+
+export async function buildStatementReport(form: FormData, signal?: AbortSignal): Promise<StatementReport> {
+  return (await (await post("/statement-report", form, signal)).json()) as StatementReport;
+}
+
+export function statementWorkbookPath(kind: StatementWorkbook): string {
+  return `/statement-report/workbook?kind=${kind}`;
 }
 
 export async function shutDown(): Promise<void> {

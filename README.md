@@ -115,8 +115,9 @@ just shortcut # Desktop + Start menu shortcut that launches this checkout
 ### React front end (in progress)
 
 A React page in `frontend/` is replacing the Streamlit UI. It talks only to
-the HTTP API on `127.0.0.1`, so the app still works offline. Until it does
-everything Streamlit does, staff keep using Streamlit. Working on it needs
+the HTTP API on `127.0.0.1`, so the app still works offline. Both pages are
+done; staff keep using Streamlit until the page is served by the `openfloat`
+launcher and `run.bat` switches over. Working on it needs
 Node 20.19 or newer (see `frontend/.nvmrc`); staff machines never need Node.
 
 ```bash

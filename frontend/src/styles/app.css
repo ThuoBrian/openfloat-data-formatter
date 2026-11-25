@@ -209,7 +209,7 @@ pre {
 
 .mode-selected {
   border-color: var(--accent);
-  background: color-mix(in oklch, var(--accent) var(--tint), var(--bg));
+  background: color-mix(in oklab, var(--accent) var(--tint), var(--bg));
 }
 
 .mode input {
@@ -230,6 +230,16 @@ pre {
 .mode:has(input:focus-visible) {
   outline: var(--focus-ring);
   outline-offset: 2px;
+}
+
+/* ---- Headings within a step ----------------------------------------------- */
+
+.subheading {
+  font-family: var(--font-display);
+  font-weight: var(--weight-heading);
+  font-size: var(--text-lg);
+  color: var(--text-strong);
+  margin: var(--space-8) 0 var(--space-2);
 }
 
 /* ---- Steps ---------------------------------------------------------------- */
@@ -267,10 +277,10 @@ pre {
   --tone: var(--info);
   margin: var(--space-3) 0;
   padding: var(--space-3) var(--space-4);
-  border: 1px solid color-mix(in oklch, var(--tone) 45%, var(--bg));
+  border: 1px solid color-mix(in oklab, var(--tone) 45%, var(--bg));
   border-left: 4px solid var(--tone);
   border-radius: var(--radius-control);
-  background: color-mix(in oklch, var(--tone) var(--tint), var(--bg));
+  background: color-mix(in oklab, var(--tone) var(--tint), var(--bg));
   color: var(--text);
 }
 
@@ -408,6 +418,22 @@ input[aria-invalid="true"] {
 
 .button-block {
   width: 100%;
+}
+
+.button-small {
+  font-size: var(--text-sm);
+  padding: var(--space-1) var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.download-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: var(--space-4);
+}
+
+.download-grid .field-help {
+  margin-top: var(--space-2);
 }
 
 /* ---- File drop ------------------------------------------------------------ */

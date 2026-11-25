@@ -5,7 +5,8 @@
 import { useEffect, useRef, useState } from "react";
 
 import { getSettings, shutDown, type UiDefaults } from "./api/client";
-import { ErrorNotice, Notice, SettingsBlocked } from "./components/ui";
+import { ErrorNotice, Notice } from "./components/ui";
+import { StatementPage } from "./pages/StatementPage";
 import { TransformPage } from "./pages/TransformPage";
 
 const MODES = [
@@ -194,12 +195,8 @@ function Workspace({ defaults, onClosed }: { defaults: UiDefaults; onClosed: () 
               defaultProjectCode: defaults.project_code,
             }}
           />
-        ) : !prefixValid ? (
-          <SettingsBlocked />
         ) : (
-          <Notice tone="info">
-            Checking payment results isn't in this version yet. Use the current app for now.
-          </Notice>
+          <StatementPage key={round} settings={{ blocked: !prefixValid, countryPrefix: prefix }} />
         )}
       </main>
     </div>
