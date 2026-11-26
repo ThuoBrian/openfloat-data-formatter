@@ -195,6 +195,20 @@ class TestOverrides:
         assert "airtime_phone (not used)" in df.columns
         assert validate(df, Settings()).valid_rows == 1
 
+    def test_moved_aside_column_does_not_collide(self):
+        """A file that already has 'airtime_phone (not used)' keeps every header unique."""
+        raw = pd.DataFrame(
+            {
+                "airtime_phone": ["000"],
+                "airtime_phone (not used)": ["111"],
+                "alt_phone": ["0712345678"],
+            }
+        )
+        df = canonicalize_input_columns(raw, {"airtime_phone": "alt_phone"})
+        assert df.columns.is_unique
+        assert df.iloc[0]["airtime_phone"] == "0712345678"
+        assert df.iloc[0]["airtime_phone (not used 2)"] == "000"
+
 
 class TestNetworkNameHeaders:
     """'network_name' is the network; 'phone_owner_name' is a person."""
