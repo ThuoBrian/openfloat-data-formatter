@@ -175,6 +175,27 @@ class TestOverrides:
         assert report.valid_rows == 1
 
 
+    def test_override_while_canonical_column_present(self):
+        """The user picks another phone column although 'airtime_phone' exists.
+
+        The bug: both columns ended up named 'airtime_phone', so `row.get`
+        returned a Series and the chosen column was not the one read.
+        """
+        raw = pd.DataFrame(
+            {
+                "airtime_phone": ["000"],
+                "alt_phone": ["0712345678"],
+                "network": ["Safaricom"],
+                "amount": ["100"],
+            }
+        )
+        df = canonicalize_input_columns(raw, {"airtime_phone": "alt_phone"})
+        assert list(df.columns).count("airtime_phone") == 1
+        assert df.iloc[0]["airtime_phone"] == "0712345678"
+        assert "airtime_phone (not used)" in df.columns
+        assert validate(df, Settings()).valid_rows == 1
+
+
 class TestNetworkNameHeaders:
     """'network_name' is the network; 'phone_owner_name' is a person."""
 

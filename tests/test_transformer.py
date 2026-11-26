@@ -118,6 +118,21 @@ class TestReadInputFile:
         assert [row["Account Name"] for row in rows] == ["00123", "456", None]
         assert [row["Amount"] for row in rows] == [100, 50, 25]
 
+    @pytest.mark.parametrize("suffix", [".csv", ".xlsx"])
+    def test_typed_na_text_is_kept_as_text(self, tmp_path, suffix):
+        """pandas read 'NA'/'N/A'/'null' as empty by default; only a blank cell is."""
+        frame = pd.DataFrame(
+            {"staff_id": ["NA", "N/A", "null", None], "network": ["x", "x", "x", "x"]}
+        )
+        path = tmp_path / f"input{suffix}"
+        if suffix == ".csv":
+            frame.to_csv(path, index=False)
+        else:
+            frame.to_excel(path, index=False)
+        df = read_input_file(path, path.name)
+        assert df["staff_id"].tolist()[:3] == ["NA", "N/A", "null"]
+        assert pd.isna(df["staff_id"].tolist()[3])
+
     def test_unsupported_suffix_raises(self):
         with pytest.raises(ValueError, match="Unsupported file format"):
             read_input_file(io.BytesIO(b"hello"), "input.txt")

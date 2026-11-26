@@ -108,6 +108,10 @@ def read_input_file(source: Any, file_name: str) -> pd.DataFrame:
     same float column made the duplicate-phone check miss every duplicate.
     Amounts are still coerced where they are used, by `normalize_amount`.
 
+    Only a truly empty cell reads as missing. pandas otherwise also treats the
+    typed text `NA`, `N/A`, `null`, `None` (and more) as empty, so a staff ID
+    of "NA" became a blank Account Name with nothing to say why.
+
     Headers are returned as the file has them; canonicalizing is the caller's
     step, because the app needs the raw headers for its column picker and the
     rejected-rows download.
@@ -122,9 +126,9 @@ def read_input_file(source: Any, file_name: str) -> pd.DataFrame:
     """
     suffix = Path(file_name).suffix.lower()
     if suffix == ".csv":
-        return pd.read_csv(source, dtype=str)
+        return pd.read_csv(source, dtype=str, keep_default_na=False, na_values=[""])
     if suffix in (".xlsx", ".xls", ".xlsm"):
-        return pd.read_excel(source, dtype=str)
+        return pd.read_excel(source, dtype=str, keep_default_na=False, na_values=[""])
     raise ValueError(
         f"Unsupported file format: '{suffix}'. Expected .csv, .xlsx, .xls, or .xlsm."
     )
@@ -159,7 +163,7 @@ def _build_output_rows(
         normalized_phone, _ = normalize_phone(
             row.get("airtime_phone", ""), config.default_country_prefix
         )
-        network = str(row.get("network", "")).strip()
+        network = read_text_cell(row.get("network"))
         account_type, _ = map_network(network, config.network_map)
         amount_value, _ = normalize_amount(row.get("amount", 0))
 

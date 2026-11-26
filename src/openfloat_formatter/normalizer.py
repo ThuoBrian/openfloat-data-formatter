@@ -489,6 +489,14 @@ def canonicalize_input_columns(
         for canonical, actual in mapping.items()
         if actual != canonical
     }
+    # A column already carrying a canonical name, which the mapping points
+    # somewhere else (the user picked a different phone column), must move
+    # aside: otherwise the frame ends up with two 'airtime_phone' columns and
+    # `row.get` returns a Series instead of a cell.
+    for column in df.columns:
+        name = str(column)
+        if name in INPUT_COLUMN_ALIASES and mapping.get(name) != name and column not in renames:
+            renames[column] = f"{name} (not used)"
     return df.rename(columns=renames) if renames else df
 
 
