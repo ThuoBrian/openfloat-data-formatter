@@ -373,6 +373,15 @@ class TestFinanceWorkbook:
         assert worksheet.cell(row=worksheet.max_row, column=DEBIT).value == 400.0
         workbook.close()
 
+    def test_successful_row_without_amount_is_not_shaded(self):
+        """Shading follows is_successful, the same rule as Debit, not an empty Debit."""
+        report = StatementReport(transactions=[_model_txn("Successful", True, None)])
+        workbook = _load(write_finance_workbook, report)
+        worksheet = workbook.active
+        assert worksheet.cell(row=2, column=DEBIT).value is None
+        assert worksheet.cell(row=2, column=1).fill.start_color.rgb != "00FFC7CE"
+        workbook.close()
+
     def test_remark_written_in_full(self):
         """The whole reference, not just the case number, and verbatim when unparsed."""
         report = StatementReport(

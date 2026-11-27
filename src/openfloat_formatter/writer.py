@@ -43,6 +43,7 @@ from .models import (
     StatementTransaction,
     ValidationReport,
 )
+from .statement import is_successful_status
 
 # Leading characters that Excel/openpyxl treat as the start of a formula.
 _FORMULA_TRIGGER_CHARS = ("=", "+", "-", "@")
@@ -540,14 +541,16 @@ def write_finance_workbook(report: StatementReport) -> BytesIO:
     sheet.title = _FINANCE_SHEET
 
     rows = _finance_rows(report.transactions)
-    debit_index = _FINANCE_COLUMNS.index("Debit")
+    status_index = _FINANCE_COLUMNS.index("Transaction Status")
     _write_sheet(
         sheet,
         _FINANCE_COLUMNS,
         rows,
         amount_columns=_FINANCE_MONEY_COLUMNS,
         phone_columns=("Account Number",),
-        flag_row=lambda row: row[debit_index] is None,
+        # Shade on the same rule that fills Debit. Testing for an empty Debit
+        # instead also shaded a Successful row that arrived with no Amount.
+        flag_row=lambda row: not is_successful_status(str(row[status_index])),
         total_columns=("Debit",),
     )
     return _to_buffer(workbook)

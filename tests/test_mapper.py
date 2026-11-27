@@ -26,6 +26,10 @@ class TestMapNetwork:
         assert result == expected
         assert error is None
 
+    def test_blank_network_says_it_is_empty(self):
+        """Not "Unrecognized network 'nan'", which is what a blank cell used to read as."""
+        assert map_network("") == ("", "Network is empty")
+
     def test_unmapped_network(self):
         """Unrecognized network returns an error."""
         result, error = map_network("Orange")

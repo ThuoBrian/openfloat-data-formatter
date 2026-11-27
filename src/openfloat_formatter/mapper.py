@@ -22,7 +22,8 @@ def map_network(
     Returns:
         A tuple of (account_type, error_message).
         On success: ("Safaricom Prepaid", None)
-        On failure: ("", f"Unrecognized network '{network}'")
+        On failure: ("", f"Unrecognized network '{network}'"), or
+        ("", "Network is empty") for a blank cell.
 
     Examples:
         >>> map_network("Safaricom")
@@ -34,6 +35,9 @@ def map_network(
     """
     if network_map is None:
         network_map = DEFAULT_NETWORK_MAP
+
+    if not network:
+        return ("", "Network is empty")
 
     account_type = network_map.get(network)
     if account_type is None:

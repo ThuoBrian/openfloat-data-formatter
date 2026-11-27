@@ -206,3 +206,28 @@ class TestTypedAmountCrossCheck:
         result = build_remark(minimal_df.iloc[0], _context(minimal_df, default_config))
         assert "does not match" in (result.warning or "")
         assert result.field == "case_remark"
+
+    def test_fractional_total_is_shown_to_the_cent(self, minimal_df, default_config):
+        """29,399.60 must not be printed as 29,400 next to KSH29400."""
+        minimal_df["amount"] = ["29399.6", "1"]
+        minimal_df["case_remark"] = ["C#38305 22505AA RESP AIRTIME-KSH29400 g05", ""]
+        context = _context(minimal_df, default_config)
+        result = build_remark(minimal_df.iloc[0], context)
+        assert "(29,399.60)" in (result.warning or "")
+
+
+class TestUnusableFallbackWarning:
+    """A bad configured project code only matters to rows that would use it."""
+
+    def test_silent_when_every_short_row_has_its_own_code(self, minimal_df, default_config):
+        minimal_df["case_remark"] = ["C#38305", "C#38306"]
+        minimal_df["project_code"] = ["22505AA", "22505AA"]
+        config = default_config.model_copy(update={"project_code": "has space"})
+        assert _context(minimal_df, config).file_warnings == ()
+
+    def test_warns_when_a_short_row_needs_the_fallback(self, minimal_df, default_config):
+        minimal_df["case_remark"] = ["C#38305", "C#38306"]
+        minimal_df["project_code"] = ["22505AA", ""]
+        config = default_config.model_copy(update={"project_code": "has space"})
+        warnings = _context(minimal_df, config).file_warnings
+        assert any("cannot be used in a case reference" in w for w in warnings)

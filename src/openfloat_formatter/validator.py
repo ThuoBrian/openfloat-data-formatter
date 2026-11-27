@@ -46,7 +46,7 @@ def check_hard_errors(row: pd.Series, config: Settings) -> list[tuple[str, str]]
     if amount_error is not None:
         failures.append(("amount", amount_error))
 
-    network = str(row.get("network", "")).strip()
+    network = read_text_cell(row.get("network"))
     _, network_error = map_network(network, config.network_map)
     if network_error is not None:
         failures.append(("network", network_error))

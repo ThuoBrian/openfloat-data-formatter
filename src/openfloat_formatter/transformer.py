@@ -108,23 +108,41 @@ def read_input_file(source: Any, file_name: str) -> pd.DataFrame:
     same float column made the duplicate-phone check miss every duplicate.
     Amounts are still coerced where they are used, by `normalize_amount`.
 
+    Only a truly empty cell reads as missing. pandas otherwise also treats the
+    typed text `NA`, `N/A`, `null`, `None` (and more) as empty, so a staff ID
+    of "NA" became a blank Account Name with nothing to say why.
+
     Headers are returned as the file has them; canonicalizing is the caller's
     step, because the app needs the raw headers for its column picker and the
     rejected-rows download.
+
+    A CSV row with more cells than the header is rejected, never read: a stray
+    comma has shifted every cell after it. pandas rejects such a row itself,
+    except when it is the first data row — then it quietly makes the surplus
+    leading cells the index, so every value sits one column to the left of
+    its header. That case is caught here.
 
     Args:
         source: A path or a readable binary buffer.
         file_name: The file's name, whose suffix picks the reader.
 
     Raises:
-        ValueError: For an unsupported suffix, and (from pandas, whose parse
-            errors subclass it) for a file that cannot be parsed.
+        ValueError: For an unsupported suffix, a CSV row with too many cells,
+            and (from pandas, whose parse errors subclass it) for a file that
+            cannot be parsed.
     """
     suffix = Path(file_name).suffix.lower()
     if suffix == ".csv":
-        return pd.read_csv(source, dtype=str)
+        df = pd.read_csv(source, dtype=str, keep_default_na=False, na_values=[""])
+        if not isinstance(df.index, pd.RangeIndex):
+            columns = len(df.columns)
+            raise ValueError(
+                f"The first row of data has {columns + df.index.nlevels} cells "
+                f"but the header has {columns}."
+            )
+        return df
     if suffix in (".xlsx", ".xls", ".xlsm"):
-        return pd.read_excel(source, dtype=str)
+        return pd.read_excel(source, dtype=str, keep_default_na=False, na_values=[""])
     raise ValueError(
         f"Unsupported file format: '{suffix}'. Expected .csv, .xlsx, .xls, or .xlsm."
     )
@@ -159,7 +177,7 @@ def _build_output_rows(
         normalized_phone, _ = normalize_phone(
             row.get("airtime_phone", ""), config.default_country_prefix
         )
-        network = str(row.get("network", "")).strip()
+        network = read_text_cell(row.get("network"))
         account_type, _ = map_network(network, config.network_map)
         amount_value, _ = normalize_amount(row.get("amount", 0))
 

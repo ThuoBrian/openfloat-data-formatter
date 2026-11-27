@@ -110,6 +110,15 @@ def _whole_kes(total: float) -> str | None:
     return str(nearest) if abs(total - nearest) < _WHOLE_KES_TOLERANCE else None
 
 
+def _format_total(total: float) -> str:
+    """A case total for a message: whole KES without decimals, else to the cent.
+
+    Rounding everything to whole KES made 29,399.60 against KSH29400 read
+    "does not match the case total (29,400)", contradicting itself.
+    """
+    return f"{total:,.0f}" if _whole_kes(total) is not None else f"{total:,.2f}"
+
+
 def _is_usable_code(value: str) -> bool:
     """A reference field is whitespace-separated, so a code cannot contain spaces."""
     return bool(value) and not any(character.isspace() for character in value)
@@ -152,7 +161,20 @@ def build_remark_context(
 
     warnings: list[str] = []
     short_form_rows = count_short_form_rows(df)
-    if short_form_rows and fallback and not _is_usable_code(fallback):
+    # Rows whose own project-code cell is filled never touch the fallback, so a
+    # bad configured code only matters for the short rows left without one.
+    needs_fallback = (
+        short_form_rows
+        if project_code_column is None
+        else sum(
+            1
+            for _index, row in df.iterrows()
+            if (parts := resolve_case_remark(row.get("case_remark", ""))[1]) is not None
+            and parts.amount is None
+            and not read_text_cell(row.get(project_code_column, ""))
+        )
+    )
+    if needs_fallback and fallback and not _is_usable_code(fallback):
         # Whatever the rows say, one bad configured code is one problem.
         warnings.append(
             f"project code '{fallback}' cannot be used in a case reference (it contains "
@@ -211,7 +233,7 @@ def _check_typed_amount(parts: CaseRemarkParts, context: RemarkContext) -> Remar
         return RemarkResult(
             remark,
             f"case_remark amount (KSH {parts.amount}) does not match the case total "
-            f"({total:,.0f}) across this file's rows",
+            f"({_format_total(total)}) across this file's rows",
         )
     return RemarkResult(remark)
 
