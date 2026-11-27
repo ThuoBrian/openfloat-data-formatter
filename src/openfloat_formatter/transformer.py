@@ -116,17 +116,31 @@ def read_input_file(source: Any, file_name: str) -> pd.DataFrame:
     step, because the app needs the raw headers for its column picker and the
     rejected-rows download.
 
+    A CSV row with more cells than the header is rejected, never read: a stray
+    comma has shifted every cell after it. pandas rejects such a row itself,
+    except when it is the first data row — then it quietly makes the surplus
+    leading cells the index, so every value sits one column to the left of
+    its header. That case is caught here.
+
     Args:
         source: A path or a readable binary buffer.
         file_name: The file's name, whose suffix picks the reader.
 
     Raises:
-        ValueError: For an unsupported suffix, and (from pandas, whose parse
-            errors subclass it) for a file that cannot be parsed.
+        ValueError: For an unsupported suffix, a CSV row with too many cells,
+            and (from pandas, whose parse errors subclass it) for a file that
+            cannot be parsed.
     """
     suffix = Path(file_name).suffix.lower()
     if suffix == ".csv":
-        return pd.read_csv(source, dtype=str, keep_default_na=False, na_values=[""])
+        df = pd.read_csv(source, dtype=str, keep_default_na=False, na_values=[""])
+        if not isinstance(df.index, pd.RangeIndex):
+            columns = len(df.columns)
+            raise ValueError(
+                f"The first row of data has {columns + df.index.nlevels} cells "
+                f"but the header has {columns}."
+            )
+        return df
     if suffix in (".xlsx", ".xls", ".xlsm"):
         return pd.read_excel(source, dtype=str, keep_default_na=False, na_values=[""])
     raise ValueError(

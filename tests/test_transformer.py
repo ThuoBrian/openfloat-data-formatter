@@ -137,6 +137,27 @@ class TestReadInputFile:
         with pytest.raises(ValueError, match="Unsupported file format"):
             read_input_file(io.BytesIO(b"hello"), "input.txt")
 
+    @pytest.mark.parametrize(
+        ("text", "cells"),
+        [
+            ("a,b,c\n1,2,3,\n4,5,6\n", 4),  # trailing comma on the first row
+            ("a,b,c\n\n1,2,3,4,5\n", 5),  # after a blank line, two extra
+        ],
+    )
+    def test_first_row_with_extra_cells_is_rejected(self, text, cells):
+        """pandas made the surplus cells the index, shifting every column."""
+        with pytest.raises(ValueError, match=f"has {cells} cells but the header has 3"):
+            read_input_file(io.BytesIO(text.encode()), "input.csv")
+
+    def test_later_row_with_extra_cells_is_rejected(self):
+        with pytest.raises(ValueError, match="Expected 3 fields in line 3, saw 4"):
+            read_input_file(io.BytesIO(b"a,b,c\n1,2,3\n4,5,6,7\n"), "input.csv")
+
+    def test_short_row_is_padded_with_empty_cells(self):
+        df = read_input_file(io.BytesIO(b"a,b,c\n1,2\n"), "input.csv")
+        assert df.iloc[0]["b"] == "2"
+        assert pd.isna(df.iloc[0]["c"])
+
 
 class TestTransformWithSampleData:
     """End-to-end transformation with the real sample CSV."""
